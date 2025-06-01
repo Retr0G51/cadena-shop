@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Inicio - {{ super() }}{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+        <div class="text-center">
+            <h1 class="text-4xl md:text-6xl font-bold mb-6">
+                Crea tu Tienda Online en Minutos
+            </h1>
+            <p class="text-xl md:text-2xl mb-8 opacity-90">
+                Sistema de pedidos simple y efectivo para tu negocio
+            </p>
+            <div class="space-x-4">
+                <a href="{{ url_for('auth.register') }}" 
+                   class="inline-block bg-white text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition transform hover:scale-105">
+                    Empezar Gratis
+                </a>
+                <a href="#features" 
+                   class="inline-block border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-indigo-600 transition">
+                    Conocer Más
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features Section -->
+<section id="features" class="py-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+                Todo lo que Necesitas para Vender Online
+            </h2>
+            <p class="text-xl text-gray-600">
+                Herramientas simples y poderosas para gestionar tu negocio
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8">
+            <!-- Feature 1 -->
+            <div class="bg-white p-8 rounded-lg shadow-lg hover:shadow-xl transition">
+                <div class="text-indigo-600 mb-4">
+                    <i class="fas fa-store text-4xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">Tu Propia Tienda</h3>
+                <p class="text-gray-600">
+                    Obtén una URL única para tu negocio y comparte tu catálogo con tus clientes fácilmente.
+                </p>
+            </div>
+
+            <!-- Feature 2 -->
+            <div class="bg-white p-8 rounded-lg shadow-lg hover:shadow-xl transition">
+                <div class="text-indigo-600 mb-4">
+                    <i class="fas fa-box text-4xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">Gestión de Productos</h3>
+                <p class="text-gray-600">
+                    Agrega, edita y organiza tus productos con imágenes, precios y control de inventario.
+                </p>
+            </div>
+
+            <!-- Feature 3 -->
+            <div class="bg-white p-8 rounded-lg shadow-lg hover:shadow-xl transition">
+                <div class="text-indigo-600 mb-4">
+                    <i class="fas fa-clipboard-list text-4xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">Pedidos en Tiempo Real</h3>
+                <p class="text-gray-600">
+                    Recibe y gestiona pedidos al instante. Mantén a tus clientes informados del estado.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How it Works -->
+<section class="bg-gray-100 py-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+                ¿Cómo Funciona?
+            </h2>
+        </div>
+
+        <div class="grid md:grid-cols-4 gap-6">
+            <div class="text-center">
+                <div class="bg-indigo-600 text-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                    1
+                </div>
+                <h3 class="font-semibold mb-2">Regístrate</h3>
+                <p class="text-gray-600 text-sm">Crea tu cuenta en segundos</p>
+            </div>
+
+            <div class="text-center">
+                <div class="bg-indigo-600 text-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                    2
+                </div>
+                <h3 class="font-semibold mb-2">Agrega Productos</h3>
+                <p class="text-gray-600 text-sm">Sube tu catálogo con fotos</p>
+            </div>
+
+            <div class="text-center">
+                <div class="bg-indigo-600 text-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                    3
+                </div>
+                <h3 class="font-semibold mb-2">Comparte tu Tienda</h3>
+                <p class="text-gray-600 text-sm">Envía el link a tus clientes</p>
+            </div>
+
+            <div class="text-center">
+                <div class="bg-indigo-600 text-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                    4
+                </div>
+                <h3 class="font-semibold mb-2">Recibe Pedidos</h3>
+                <p class="text-gray-600 text-sm">Gestiona todo desde el panel</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="bg-indigo-600 py-16">
+    <div class="max-w-4xl mx-auto px-4 text-center">
+        <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">
+            ¿Listo para Empezar?
+        </h2>
+        <p class="text-xl text-indigo-100 mb-8">
+            Únete a cientos de negocios que ya están vendiendo online
+        </p>
+        <a href="{{ url_for('auth.register') }}" 
+           class="inline-block bg-white text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition transform hover:scale-105">
+            Crear Mi Tienda Ahora
+        </a>
+    </div>
+</section>
+{% endblock %}
