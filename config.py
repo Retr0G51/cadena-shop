@@ -52,7 +52,7 @@ class ProductionConfig(Config):
     if not SECRET_KEY:
         raise ValueError("SECRET_KEY no está configurada en producción")
 
-config = {
+ config_by_name = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
     'default': DevelopmentConfig
