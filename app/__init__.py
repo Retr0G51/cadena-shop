@@ -1,6 +1,6 @@
 import os
 from flask import Flask
-from config import config
+from config import config_by_name as config
 from app.extensions import db, login_manager, migrate
 
 def create_app(config_name=None):
