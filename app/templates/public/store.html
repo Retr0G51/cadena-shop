@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ business.business_name }} - Tienda Online</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js para interactividad -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-50" x-data="cart()">
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">{{ business.business_name }}</h1>
+                    {% if business.description %}
+                    <p class="text-sm text-gray-600">{{ business.description }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Cart Button -->
+                <button @click="showCart = true" 
+                        class="relative inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                    <i class="fas fa-shopping-cart mr-2"></i>
+                    Carrito
+                    <span x-show="totalItems > 0" 
+                          class="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 flex items-center justify-center text-white text-xs font-bold"
+                          x-text="totalItems"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+                {% for category, message in messages %}
+                    <div class="{% if category == 'success' %}bg-green-100 border-green-400 text-green-700{% elif category == 'danger' %}bg-red-100 border-red-400 text-red-700{% elif category == 'warning' %}bg-yellow-100 border-yellow-400 text-yellow-700{% else %}bg-blue-100 border-blue-400 text-blue-700{% endif %} px-4 py-3 rounded relative mb-4" role="alert">
+                        <span class="block sm:inline">{{ message }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Business Info -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {% if business.phone %}
+                <div class="flex items-center">
+                    <i class="fas fa-phone text-indigo-600 mr-3"></i>
+                    <div>
+                        <p class="text-sm text-gray-600">Teléfono</p>
+                        <p class="font-medium">{{ business.phone }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                {% if business.address %}
+                <div class="flex items-center">
+                    <i class="fas fa-map-marker-alt text-indigo-600 mr-3"></i>
+                    <div>
+                        <p class="text-sm text-gray-600">Dirección</p>
+                        <p class="font-medium">{{ business.address }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="flex items-center">
+                    <i class="fas fa-clock text-indigo-600 mr-3"></i>
+                    <div>
+                        <p class="text-sm text-gray-600">Estado</p>
+                        <p class="font-medium text-green-600">Abierto</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Products Grid -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Nuestros Productos</h2>
+        
+        {% if products %}
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {% for product in products %}
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                <!-- Product Image -->
+                <div class="aspect-w-1 aspect-h-1 bg-gray-200">
+                    {% if product.image %}
+                    <img src="{{ url_for('static', filename=product.image) }}" 
+                         alt="{{ product.name }}" 
+                         class="w-full h-48 object-cover">
+                    {% else %}
+                    <div class="w-full h-48 flex items-center justify-center bg-gray-100">
+                        <i class="fas fa-image text-gray-400 text-4xl"></i>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Product Info -->
+                <div class="p-4">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ product.name }}</h3>
+                    <p class="text-sm text-gray-600 mb-3 line-clamp-2">
+                        {{ product.description or 'Delicioso producto disponible' }}
+                    </p>
+                    
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-2xl font-bold text-indigo-600">${{ "%.2f"|format(product.price) }}</span>
+                        <span class="text-sm text-gray-500">Disponible: {{ product.stock }}</span>
+                    </div>
+                    
+                    <!-- Add to Cart Button -->
+                    <button @click="addToCart({{ product.id }}, '{{ product.name }}', {{ product.price }}, {{ product.stock }})" 
+                            class="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">
+                        <i class="fas fa-cart-plus mr-2"></i> Agregar al Carrito
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <i class="fas fa-store-slash text-gray-400 text-6xl mb-4"></i>
+            <p class="text-xl text-gray-600">No hay productos disponibles en este momento</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Cart Sidebar -->
+    <div x-show="showCart" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-gray-500 bg-opacity-75 z-50"
+         @click="showCart = false">
+    </div>
+
+    <div x-show="showCart"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="translate-x-full"
+         x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="translate-x-0"
+         x-transition:leave-end="translate-x-full"
+         class="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl z-50 overflow-y-auto">
+        
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold">Tu Carrito</h2>
+                <button @click="showCart = false" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <!-- Cart Items -->
+            <div x-show="items.length > 0">
+                <template x-for="item in items" :key="item.id">
+                    <div class="flex items-center justify-between py-4 border-b">
+                        <div class="flex-1">
+                            <h4 class="font-semibold" x-text="item.name"></h4>
+                            <p class="text-sm text-gray-600">
+                                $<span x-text="item.price.toFixed(2)"></span> x <span x-text="item.quantity"></span>
+                            </p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button @click="updateQuantity(item.id, -1)" 
+                                    class="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center">
+                                <i class="fas fa-minus text-xs"></i>
+                            </button>
+                            <span x-text="item.quantity" class="w-8 text-center"></span>
+                            <button @click="updateQuantity(item.id, 1)" 
+                                    class="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center">
+                                <i class="fas fa-plus text-xs"></i>
+                            </button>
+                            <button @click="removeFromCart(item.id)" 
+                                    class="ml-2 text-red-600 hover:text-red-800">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Total -->
+                <div class="mt-6 border-t pt-4">
+                    <div class="flex justify-between text-xl font-bold">
+                        <span>Total:</span>
+                        <span>$<span x-text="total.toFixed(2)"></span></span>
+                    </div>
+                </div>
+
+                <!-- Order Form -->
+                <form method="POST" action="{{ url_for('public.create_order', slug=business.slug) }}" class="mt-6">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="products_data" x-model="productsData">
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre completo *</label>
+                            <input type="text" name="customer_name" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono *</label>
+                            <input type="tel" name="customer_phone" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email (opcional)</label>
+                            <input type="email" name="customer_email" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Dirección de entrega *</label>
+                            <textarea name="delivery_address" required rows="3" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Notas adicionales</label>
+                            <textarea name="notes" rows="2" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" 
+                            class="w-full mt-6 bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 transition font-semibold">
+                        <i class="fas fa-check-circle mr-2"></i> Realizar Pedido
+                    </button>
+                </form>
+            </div>
+
+            <!-- Empty Cart -->
+            <div x-show="items.length === 0" class="text-center py-12">
+                <i class="fas fa-shopping-cart text-gray-400 text-6xl mb-4"></i>
+                <p class="text-xl text-gray-600">Tu carrito está vacío</p>
+                <button @click="showCart = false" 
+                        class="mt-4 text-indigo-600 hover:text-indigo-800 font-medium">
+                    Continuar comprando
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alpine.js Cart Logic -->
+    <script>
+    function cart() {
+        return {
+            showCart: false,
+            items: [],
+            
+            init() {
+                // Cargar carrito desde localStorage
+                const saved = localStorage.getItem('cart_{{ business.id }}');
+                if (saved) {
+                    this.items = JSON.parse(saved);
+                }
+            },
+            
+            get totalItems() {
+                return this.items.reduce((sum, item) => sum + item.quantity, 0);
+            },
+            
+            get total() {
+                return this.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            },
+            
+            get productsData() {
+                return JSON.stringify(this.items.map(item => ({
+                    id: item.id,
+                    quantity: item.quantity
+                })));
+            },
+            
+            addToCart(id, name, price, maxStock) {
+                const existing = this.items.find(item => item.id === id);
+                
+                if (existing) {
+                    if (existing.quantity < maxStock) {
+                        existing.quantity++;
+                    } else {
+                        alert('No hay más stock disponible de este producto');
+                    }
+                } else {
+                    this.items.push({
+                        id: id,
+                        name: name,
+                        price: price,
+                        quantity: 1,
+                        maxStock: maxStock
+                    });
+                }
+                
+                this.saveCart();
+                this.showCart = true;
+            },
+            
+            updateQuantity(id, change) {
+                const item = this.items.find(item => item.id === id);
+                if (item) {
+                    const newQuantity = item.quantity + change;
+                    if (newQuantity > 0 && newQuantity <= item.maxStock) {
+                        item.quantity = newQuantity;
+                    } else if (newQuantity > item.maxStock) {
+                        alert('No hay suficiente stock');
+                    }
+                    this.saveCart();
+                }
+            },
+            
+            removeFromCart(id) {
+                this.items = this.items.filter(item => item.id !== id);
+                this.saveCart();
+            },
+            
+            saveCart() {
+                localStorage.setItem('cart_{{ business.id }}', JSON.stringify(this.items));
+            },
+            
+            clearCart() {
+                this.items = [];
+                localStorage.removeItem('cart_{{ business.id }}');
+            }
+        }
+    }
+    </script>
+</body>
+</html>
