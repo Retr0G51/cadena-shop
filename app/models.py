@@ -81,7 +81,7 @@ class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    price = db.Column(db.Decimal(10, 2), nullable=False)
+    price = db.Column(db.Numeric(10, 2), nullable=False)
     stock = db.Column(db.Integer, default=0)
     image = db.Column(db.String(200))  # Ruta de la imagen
     
@@ -124,7 +124,7 @@ class Order(db.Model):
     status = db.Column(db.String(20), default='pending')  # pending, confirmed, preparing, ready, delivered, cancelled
     
     # Totales
-    total = db.Column(db.Decimal(10, 2), default=0)
+    total = db.Column(db.Numeric(10, 2), default=0)
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
