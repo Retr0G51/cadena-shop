@@ -1,1 +1,1 @@
-web: gunicorn wsgi:app
+web: python railway_init.py && gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
