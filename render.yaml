@@ -1,9 +1,9 @@
 services:
   - type: web
     name: pedidos-saas
-    env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn run:app"
+    runtime: python
+    buildCommand: "chmod +x build.sh && ./build.sh"
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT wsgi:app"
     envVars:
       - key: FLASK_ENV
         value: production
