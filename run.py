@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """
 Punto de entrada principal para la aplicación PedidosSaaS
+Este archivo es para desarrollo local. En producción se usa wsgi.py
 """
 import os
 from app import create_app, db
@@ -24,9 +25,12 @@ def make_shell_context():
     }
 
 if __name__ == '__main__':
-    # Solo en desarrollo
-    if config_name == 'development':
-        app.run(host='0.0.0.0', port=5000, debug=True)
-    else:
-        # En producción, usar gunicorn
-        app.run()
+    # Configuración para desarrollo local
+    port = int(os.environ.get('PORT', 5000))
+    debug = config_name == 'development'
+    
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=debug
+    )
