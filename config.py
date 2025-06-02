@@ -15,6 +15,10 @@ class Config:
     if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
         SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
     
+    # Ajuste adicional para Render que puede usar postgresql+psycopg2
+    if SQLALCHEMY_DATABASE_URI and 'postgresql://' in SQLALCHEMY_DATABASE_URI and '+psycopg2' not in SQLALCHEMY_DATABASE_URI:
+        SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgresql://', 'postgresql+psycopg2://', 1)
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False
     
@@ -52,7 +56,7 @@ class ProductionConfig(Config):
     if not SECRET_KEY:
         raise ValueError("SECRET_KEY no está configurada en producción")
 
-config_by_name = {
+config = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
     'default': DevelopmentConfig
