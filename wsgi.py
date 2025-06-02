@@ -1,11 +1,10 @@
 """
-Punto de entrada WSGI para producción
-Render busca este archivo específicamente
+Punto de entrada WSGI para Railway/Producción
 """
-import os
 from app import create_app
+import os
 
-# Crear la aplicación con configuración de producción
+# Crear aplicación Flask
 app = create_app(os.environ.get('FLASK_ENV', 'production'))
 
 if __name__ == "__main__":
