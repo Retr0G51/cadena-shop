@@ -1,6 +1,6 @@
 import os
 from flask import Flask
-from config import config_by_name as config
+from config import config
 from app.extensions import db, login_manager, migrate
 
 def create_app(config_name=None):
@@ -36,6 +36,11 @@ def create_app(config_name=None):
         from flask import render_template
         return render_template('index.html')
     
+    # Ruta de health check para Render
+    @app.route('/health')
+    def health():
+        return 'OK', 200
+    
     # Manejadores de errores
     @app.errorhandler(404)
     def not_found_error(error):
@@ -53,6 +58,7 @@ def create_app(config_name=None):
     def inject_globals():
         return {
             'site_name': 'PedidosSaaS',
-            'current_year': 2025        }
+            'current_year': 2024
+        }
     
     return app
