@@ -9,7 +9,7 @@ order_products = db.Table('order_products',
     db.Column('order_id', db.Integer, db.ForeignKey('orders.id'), primary_key=True),
     db.Column('product_id', db.Integer, db.ForeignKey('products.id'), primary_key=True),
     db.Column('quantity', db.Integer, default=1),
-    db.Column('price_at_time', db.Decimal(10, 2))  # Precio al momento de la compra
+    db.Column('price_at_time', db.Numeric(10, 2))  # Precio al momento de la compra
 )
 
 class User(UserMixin, db.Model):
