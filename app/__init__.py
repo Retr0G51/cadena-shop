@@ -1,3 +1,10 @@
+"""
+PedidosSaaS - Sistema de Pedidos Online Multiusuario
+"""
+
+__version__ = '1.0.0'
+__author__ = 'Bruno Bernal'
+
 import os
 from flask import Flask
 from flask_login import current_user
