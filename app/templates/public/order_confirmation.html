@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedido Confirmado - {{ business.business_name }}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        @keyframes checkmark {
+            0% { transform: scale(0) rotate(45deg); opacity: 0; }
+            40% { transform: scale(1.3) rotate(45deg); opacity: 1; }
+            100% { transform: scale(1) rotate(45deg); opacity: 1; }
+        }
+        .checkmark-animate {
+            animation: checkmark 0.6s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex items-center justify-center px-4">
+        <div class="max-w-md w-full">
+            <!-- Success Icon -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-24 h-24 bg-green-100 rounded-full mb-4">
+                    <i class="fas fa-check text-green-600 text-4xl checkmark-animate"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">¡Pedido Confirmado!</h1>
+                <p class="text-gray-600">Tu pedido ha sido recibido exitosamente</p>
+            </div>
+            
+            <!-- Order Details -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <div class="text-center mb-6">
+                    <p class="text-sm text-gray-600 mb-1">Número de pedido</p>
+                    <p class="text-2xl font-bold text-purple-600">{{ order.order_number }}</p>
+                </div>
+                
+                <div class="space-y-4 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Cliente:</span>
+                        <span class="font-medium">{{ order.customer_name }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Teléfono:</span>
+                        <span class="font-medium">{{ order.customer_phone }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Total:</span>
+                        <span class="font-medium">${{ "%.2f"|format(order.total) }} {{ business.currency }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Estado:</span>
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full {{ order.get_status_badge_class() }}">
+                            {{ order.get_status_display() }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Next Steps -->
+            <div class="bg-blue-50 rounded-lg p-6 mb-6">
+                <h3 class="font-semibold mb-3 flex items-center">
+                    <i class="fas fa-info-circle text-blue-600 mr-2"></i>
+                    ¿Qué sigue?
+                </h3>
+                <ol class="text-sm space-y-2 text-gray-700">
+                    <li class="flex items-start">
+                        <span class="font-medium mr-2">1.</span>
+                        <span>{{ business.business_name }} revisará tu pedido y te contactará para confirmar los detalles.</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="font-medium mr-2">2.</span>
+                        <span>Recibirás una llamada o mensaje al número que proporcionaste.</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="font-medium mr-2">3.</span>
+                        <span>Tu pedido será preparado y entregado según lo acordado.</span>
+                    </li>
+                </ol>
+            </div>
+            
+            <!-- Contact Info -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h3 class="font-semibold mb-3">Información de Contacto</h3>
+                <div class="space-y-2 text-sm">
+                    <p class="flex items-center">
+                        <i class="fas fa-store text-purple-600 mr-3"></i>
+                        <span>{{ business.business_name }}</span>
+                    </p>
+                    {% if business.phone %}
+                    <p class="flex items-center">
+                        <i class="fas fa-phone text-purple-600 mr-3"></i>
+                        <a href="tel:{{ business.phone }}" class="text-purple-600 hover:text-purple-700">{{ business.phone }}</a>
+                    </p>
+                    {% endif %}
+                    {% if business.address %}
+                    <p class="flex items-center">
+                        <i class="fas fa-map-marker-alt text-purple-600 mr-3"></i>
+                        <span>{{ business.address }}</span>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <a href="{{ url_for('public.store', slug=business.slug) }}" 
+                   class="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-center py-3 rounded-lg font-medium transition">
+                    <i class="fas fa-shopping-bag mr-2"></i> Seguir Comprando
+                </a>
+                <button onclick="window.print()" 
+                        class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 rounded-lg font-medium transition">
+                    <i class="fas fa-print mr-2"></i> Imprimir
+                </button>
+            </div>
+            
+            <!-- Thank You Message -->
+            <div class="text-center mt-8 text-gray-600">
+                <p class="text-lg font-medium mb-2">¡Gracias por tu compra!</p>
+                <p class="text-sm">Apreciamos tu confianza en {{ business.business_name }}</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
