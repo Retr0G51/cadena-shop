@@ -1,3 +1,25 @@
 # Migraciones de Base de Datos
 
 Este directorio contiene las migraciones de la base de datos generadas por Flask-Migrate.
+
+## Comandos útiles:
+
+```bash
+# Inicializar migraciones (solo la primera vez)
+flask db init
+
+# Crear una nueva migración
+flask db migrate -m "Descripción del cambio"
+
+# Aplicar migraciones
+flask db upgrade
+
+# Revertir última migración
+flask db downgrade
+
+# Ver historial
+flask db history
+
+# Ver migración actual
+flask db current
+```
