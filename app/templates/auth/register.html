@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Cuenta{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+        <div>
+            <div class="text-center">
+                <i class="fas fa-shopping-cart text-purple-600 text-5xl mb-4"></i>
+                <h2 class="text-3xl font-bold text-gray-900">
+                    Crea tu cuenta gratis
+                </h2>
+                <p class="mt-2 text-sm text-gray-600">
+                    Ya tienes cuenta?
+                    <a href="{{ url_for('auth.login') }}" class="font-medium text-purple-600 hover:text-purple-500">
+                        Inicia sesión aquí
+                    </a>
+                </p>
+            </div>
+        </div>
+        
+        <form class="mt-8 space-y-6" method="POST" action="">
+            {{ form.hidden_tag() }}
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="business_name" class="block text-sm font-medium text-gray-700">
+                        Nombre del Negocio
+                    </label>
+                    {{ form.business_name(class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm", placeholder="Ej: Panadería San José") }}
+                    {% if form.business_name.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.business_name.errors[0] }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">
+                        Email
+                    </label>
+                    {{ form.email(class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm", placeholder="tu@email.com") }}
+                    {% if form.email.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.email.errors[0] }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="phone" class="block text-sm font-medium text-gray-700">
+                        Teléfono
+                    </label>
+                    {{ form.phone(class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm", placeholder="+53 5555-5555") }}
+                    {% if form.phone.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.phone.errors[0] }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="address" class="block text-sm font-medium text-gray-700">
+                        Dirección (opcional)
+                    </label>
+                    {{ form.address(class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm", placeholder="Calle 23 #456, Vedado") }}
+                    {% if form.address.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.address.errors[0] }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">
+                        Contraseña
+                    </label>
+                    {{ form.password(class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm", placeholder="Mínimo 6 caracteres") }}
+                    {% if form.password.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.password.errors[0] }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="confirm_password" class="block text-sm font-medium text-gray-700">
+                        Confirmar Contraseña
+                    </label>
+                    {{ form.confirm_password(class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm", placeholder="Repite tu contraseña") }}
+                    {% if form.confirm_password.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.confirm_password.errors[0] }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div>
+                <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                        <i class="fas fa-user-plus text-purple-500 group-hover:text-purple-400"></i>
+                    </span>
+                    Crear Mi Cuenta
+                </button>
+            </div>
+            
+            <div class="text-xs text-gray-600 text-center">
+                Al crear una cuenta, aceptas nuestros 
+                <a href="#" class="text-purple-600 hover:text-purple-500">Términos de Servicio</a> 
+                y 
+                <a href="#" class="text-purple-600 hover:text-purple-500">Política de Privacidad</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
