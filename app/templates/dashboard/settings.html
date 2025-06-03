@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Configuración del Negocio</h1>
+        <p class="text-gray-600 mt-2">Administra la información y configuración de tu negocio</p>
+    </div>
+    
+    <!-- Settings Form -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <form method="POST" enctype="multipart/form-data" x-data="{ logoPreview: null }">
+            {{ form.hidden_tag() }}
+            
+            <!-- Business Info Section -->
+            <div class="mb-8">
+                <h2 class="text-lg font-semibold mb-4">Información del Negocio</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            {{ form.business_name.label.text }}
+                        </label>
+                        {{ form.business_name(class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500") }}
+                        {% if form.business_name.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.business_name.errors[0] }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            URL de tu tienda
+                        </label>
+                        <div class="flex items-center">
+                            <span class="text-gray-500 mr-2">{{ request.url_root }}tienda/</span>
+                            <span class="font-medium text-purple-600">{{ current_user.slug }}</span>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500">Esta URL se actualizará si cambias el nombre del negocio</p>
+                    </div>
+                </div>
+                
+                <div class="mt-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ form.description.label.text }}
+                    </label>
+                    {{ form.description(class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500", rows="3") }}
+                    <p class="mt-1 text-sm text-gray-500">Describe brevemente tu negocio (aparecerá en tu tienda)</p>
+                </div>
+            </div>
+            
+            <!-- Contact Section -->
+            <div class="mb-8">
+                <h2 class="text-lg font-semibold mb-4">Información de Contacto</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            {{ form.phone.label.text }}
+                        </label>
+                        {{ form.phone(class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500") }}
+                        {% if form.phone.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.phone.errors[0] }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            {{ form.address.label.text }}
+                        </label>
+                        {{ form.address(class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500") }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Logo Section -->
+            <div class="mb-8">
+                <h2 class="text-lg font-semibold mb-4">Logo del Negocio</h2>
+                
+                <div class="flex items-start space-x-6">
+                    <div>
+                        {% if current_user.logo %}
+                            <img src="{{ url_for('static', filename='uploads/' + current_user.logo) }}" 
+                                 alt="Logo actual" 
+                                 class="w-32 h-32 object-cover rounded-lg"
+                                 x-show="!logoPreview">
+                        {% else %}
+                            <div x-show="!logoPreview" class="w-32 h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-store text-gray-400 text-3xl"></i>
+                            </div>
+                        {% endif %}
+                        <img x-show="logoPreview" 
+                             :src="logoPreview" 
+                             class="w-32 h-32 object-cover rounded-lg"
+                             style="display: none;">
+                    </div>
+                    
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            {{ form.logo.label.text }}
+                        </label>
+                        <input type="file" 
+                               name="logo" 
+                               accept="image/*"
+                               @change="logoPreview = URL.createObjectURL($event.target.files[0])"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                        <p class="mt-1 text-sm text-gray-500">Recomendado: Imagen cuadrada de al menos 400x400 píxeles</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings Section -->
+            <div class="mb-8">
+                <h2 class="text-lg font-semibold mb-4">Configuración de la Tienda</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            {{ form.accept_orders.label.text }}
+                        </label>
+                        {{ form.accept_orders(class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500") }}
+                        <p class="mt-1 text-sm text-gray-500">Desactiva temporalmente si no puedes recibir pedidos</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            {{ form.currency.label.text }}
+                        </label>
+                        {{ form.currency(class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500") }}
+                        <p class="mt-1 text-sm text-gray-500">Moneda para mostrar los precios</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="flex justify-end space-x-4">
+                <button type="submit" class="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
+                    <i class="fas fa-save mr-2"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
