@@ -1,0 +1,3 @@
+# Migraciones de Base de Datos
+
+Este directorio contiene las migraciones de la base de datos generadas por Flask-Migrate.
