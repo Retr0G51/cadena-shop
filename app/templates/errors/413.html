@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Archivo muy grande{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4">
+    <div class="text-center">
+        <h1 class="text-9xl font-bold text-yellow-600">413</h1>
+        <h2 class="text-3xl font-semibold text-gray-800 mt-4">Archivo muy grande</h2>
+        <p class="text-gray-600 mt-4 mb-8">El archivo que intentas subir excede el tamaño máximo permitido (16MB).</p>
+        <a href="javascript:history.back()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg inline-flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Volver
+        </a>
+    </div>
+</div>
+{% endblock %}
