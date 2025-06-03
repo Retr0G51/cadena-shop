@@ -74,7 +74,7 @@ class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    price = db.Column(db.Decimal(10, 2), nullable=False)
+    price = db.Column(db.DECIMAL(10, 2), nullable=False)
     stock = db.Column(db.Integer, default=0)
     image = db.Column(db.String(200))  # Path to product image
     
@@ -127,8 +127,8 @@ class Order(db.Model):
     payment_status = db.Column(db.String(20), default='pending')  # pending, paid, refunded
     
     # Totales
-    subtotal = db.Column(db.Decimal(10, 2), default=0)
-    delivery_fee = db.Column(db.Decimal(10, 2), default=0)
+    subtotal = db.Column(db.DECIMAL(10, 2), default=0)
+    delivery_fee = db.Column(db.DECIMAL(10, 2), default=0)
     total = db.Column(db.Decimal(10, 2), default=0)
     
     # Timestamps
@@ -196,7 +196,7 @@ class OrderItem(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     quantity = db.Column(db.Integer, nullable=False, default=1)
-    unit_price = db.Column(db.Decimal(10, 2), nullable=False)
+    unit_price = db.Column(db.DECIMAL(10, 2), nullable=False)
     subtotal = db.Column(db.Decimal(10, 2), nullable=False)
     notes = db.Column(db.String(200))
     
