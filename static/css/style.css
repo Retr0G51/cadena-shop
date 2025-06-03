@@ -1,0 +1,187 @@
+/* Custom styles for PedidosSaaS */
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Loading spinner */
+.spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #7c3aed;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Print styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    body {
+        background: white;
+    }
+    
+    .print-break {
+        page-break-after: always;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Responsive tables */
+@media (max-width: 640px) {
+    .responsive-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
+
+/* app/static/js/main.js
+// CSRF Token handling for AJAX requests
+function getCSRFToken() {
+    const token = document.querySelector('meta[name="csrf-token"]');
+    return token ? token.getAttribute('content') : '';
+}
+
+// Set CSRF token for all AJAX requests
+document.addEventListener('DOMContentLoaded', function() {
+    // Add CSRF token to all fetch requests
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+        let [resource, config] = args;
+        
+        if (config && config.method && config.method.toUpperCase() !== 'GET') {
+            config = config || {};
+            config.headers = config.headers || {};
+            
+            if (!config.headers['X-CSRFToken']) {
+                config.headers['X-CSRFToken'] = getCSRFToken();
+            }
+        }
+        
+        return originalFetch(resource, config);
+    };
+});
+
+// Utility functions
+const Utils = {
+    // Format currency
+    formatCurrency: function(amount, currency = 'CUP') {
+        return new Intl.NumberFormat('es-CU', {
+            style: 'currency',
+            currency: currency,
+            minimumFractionDigits: 2
+        }).format(amount);
+    },
+    
+    // Show notification
+    showNotification: function(message, type = 'success') {
+        const notification = document.createElement('div');
+        const bgColor = type === 'success' ? 'bg-green-500' : 
+                       type === 'error' ? 'bg-red-500' : 
+                       type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500';
+        
+        notification.className = `fixed top-20 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 fade-in`;
+        notification.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas fa-${type === 'success' ? 'check' : 'exclamation'}-circle mr-2"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    },
+    
+    // Confirm dialog
+    confirm: function(message, onConfirm) {
+        if (confirm(message)) {
+            onConfirm();
+        }
+    },
+    
+    // Loading state
+    setLoading: function(element, loading = true) {
+        if (loading) {
+            element.disabled = true;
+            element.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Cargando...';
+        } else {
+            element.disabled = false;
+        }
+    }
+};
+
+// Image preview for file inputs
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInputs = document.querySelectorAll('input[type="file"][accept*="image"]');
+    
+    fileInputs.forEach(input => {
+        input.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById(input.id + '-preview');
+                    if (preview) {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    });
+});
+
+// Auto-hide flash messages
+document.addEventListener('DOMContentLoaded', function() {
+    const flashMessages = document.querySelectorAll('[data-flash-message]');
+    flashMessages.forEach(message => {
+        setTimeout(() => {
+            message.style.opacity = '0';
+            setTimeout(() => message.remove(), 300);
+        }, 5000);
+    });
+});
