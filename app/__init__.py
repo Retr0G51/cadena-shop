@@ -74,8 +74,10 @@ def configure_login_manager(app):
 def register_context_processors(app):
     """Registra variables globales para templates"""
     @app.context_processor
-    def inject_globals():
-        return {
-            'current_user': current_user,
-            'site_name': 'PedidosSaaS'
+def inject_csrf_token():
+    def generate_csrf():
+        if hasattr(g, 'csrf_token'):
+            return g.csrf_token
+        return ''
+    return dict(csrf_token=generate_csrf)
         }
