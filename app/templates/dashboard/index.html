@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">
+            Bienvenido, {{ current_user.business_name }}!
+        </h1>
+        <p class="text-gray-600 mt-2">Aquí tienes un resumen de tu negocio</p>
+    </div>
+    
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Productos Totales</p>
+                    <p class="text-3xl font-bold text-gray-800">{{ total_products }}</p>
+                </div>
+                <div class="bg-purple-100 rounded-full p-3">
+                    <i class="fas fa-box text-purple-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Productos Activos</p>
+                    <p class="text-3xl font-bold text-gray-800">{{ active_products }}</p>
+                </div>
+                <div class="bg-green-100 rounded-full p-3">
+                    <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Pedidos Totales</p>
+                    <p class="text-3xl font-bold text-gray-800">{{ total_orders }}</p>
+                </div>
+                <div class="bg-blue-100 rounded-full p-3">
+                    <i class="fas fa-shopping-cart text-blue-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Pedidos Pendientes</p>
+                    <p class="text-3xl font-bold text-gray-800">{{ pending_orders }}</p>
+                </div>
+                <div class="bg-yellow-100 rounded-full p-3">
+                    <i class="fas fa-clock text-yellow-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Acciones Rápidas</h2>
+            <div class="space-y-3">
+                <a href="{{ url_for('dashboard.new_product') }}" class="flex items-center justify-between p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition">
+                    <div class="flex items-center">
+                        <i class="fas fa-plus-circle text-purple-600 mr-3"></i>
+                        <span class="font-medium">Agregar Producto</span>
+                    </div>
+                    <i class="fas fa-arrow-right text-purple-600"></i>
+                </a>
+                
+                <a href="{{ url_for('dashboard.orders') }}" class="flex items-center justify-between p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
+                    <div class="flex items-center">
+                        <i class="fas fa-list text-blue-600 mr-3"></i>
+                        <span class="font-medium">Ver Todos los Pedidos</span>
+                    </div>
+                    <i class="fas fa-arrow-right text-blue-600"></i>
+                </a>
+                
+                <a href="{{ url_for('public.store', slug=current_user.slug) }}" target="_blank" class="flex items-center justify-between p-4 bg-green-50 rounded-lg hover:bg-green-100 transition">
+                    <div class="flex items-center">
+                        <i class="fas fa-external-link-alt text-green-600 mr-3"></i>
+                        <span class="font-medium">Ver Mi Tienda</span>
+                    </div>
+                    <i class="fas fa-arrow-right text-green-600"></i>
+                </a>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Tu URL de Tienda</h2>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-600 mb-2">Comparte este enlace con tus clientes:</p>
+                <div class="flex items-center space-x-2">
+                    <input type="text" value="{{ url_for('public.store', slug=current_user.slug, _external=True) }}" 
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" readonly>
+                    <button onclick="copyToClipboard(this)" data-url="{{ url_for('public.store', slug=current_user.slug, _external=True) }}" 
+                            class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Orders -->
+    {% if recent_orders %}
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold mb-4">Pedidos Recientes</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            # Pedido
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Cliente
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Total
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Estado
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Fecha
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Acciones
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for order in recent_orders %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {{ order.order_number }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ order.customer_name }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${{ "%.2f"|format(order.total) }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ order.get_status_badge_class() }}">
+                                {{ order.get_status_display() }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ order.created_at.strftime('%d/%m/%Y %H:%M') }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <a href="{{ url_for('dashboard.order_detail', order_id=order.id) }}" class="text-purple-600 hover:text-purple-900">
+                                Ver detalles
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function copyToClipboard(button) {
+    const url = button.getAttribute('data-url');
+    navigator.clipboard.writeText(url).then(function() {
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check"></i>';
+        button.classList.add('bg-green-600');
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.classList.remove('bg-green-600');
+        }, 2000);
+    });
+}
+</script>
+{% endblock %}
