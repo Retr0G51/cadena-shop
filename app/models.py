@@ -129,7 +129,7 @@ class Order(db.Model):
     # Totales
     subtotal = db.Column(db.DECIMAL(10, 2), default=0)
     delivery_fee = db.Column(db.DECIMAL(10, 2), default=0)
-    total = db.Column(db.Decimal(10, 2), default=0)
+    total = db.Column(db.DECIMAL(10, 2), default=0)
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -197,7 +197,7 @@ class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     quantity = db.Column(db.Integer, nullable=False, default=1)
     unit_price = db.Column(db.DECIMAL(10, 2), nullable=False)
-    subtotal = db.Column(db.Decimal(10, 2), nullable=False)
+    subtotal = db.Column(db.DECIMAL(10, 2), nullable=False)
     notes = db.Column(db.String(200))
     
     # Foreign keys
