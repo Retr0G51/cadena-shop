@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Pedido #{{ order.order_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8 flex justify-between items-start">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Pedido #{{ order.order_number }}</h1>
+            <p class="text-gray-600 mt-2">{{ order.created_at.strftime('%d de %B de %Y a las %H:%M') }}</p>
+        </div>
+        <a href="{{ url_for('dashboard.orders') }}" class="text-purple-600 hover:text-purple-700">
+            <i class="fas fa-arrow-left mr-2"></i> Volver a pedidos
+        </a>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Order Details -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Status -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold mb-4">Estado del Pedido</h2>
+                <div class="flex items-center justify-between mb-4">
+                    <span class="px-3 py-1 text-sm font-semibold rounded-full {{ order.get_status_badge_class() }}">
+                        {{ order.get_status_display() }}
+                    </span>
+                    <button onclick="showStatusModal()" class="text-purple-600 hover:text-purple-700 text-sm">
+                        <i class="fas fa-edit mr-1"></i> Cambiar estado
+                    </button>
+                </div>
+                
+                <!-- Status Timeline -->
+                <div class="relative">
+                    <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                    <div class="space-y-4">
+                        <div class="flex items-center">
+                            <div class="relative z-10 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                <i class="fas fa-check text-white text-sm"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="font-medium">Pedido recibido</p>
+                                <p class="text-sm text-gray-500">{{ order.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                            </div>
+                        </div>
+                        {% if order.status in ['confirmed', 'preparing', 'ready', 'delivered'] %}
+                        <div class="flex items-center">
+                            <div class="relative z-10 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                <i class="fas fa-check text-white text-sm"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="font-medium">Pedido confirmado</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if order.status in ['preparing', 'ready', 'delivered'] %}
+                        <div class="flex items-center">
+                            <div class="relative z-10 w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                                <i class="fas fa-check text-white text-sm"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="font-medium">Preparando pedido</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if order.status in ['ready', 'delivered'] %}
+                        <div class="flex items-center">
+                            <div class="relative z-10 w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center">
+                                <i class="fas fa-check text-white text-sm"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="font-medium">Pedido listo</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if order.status == 'delivered' %}
+                        <div class="flex items-center">
+                            <div class="relative z-10 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                <i class="fas fa-check text-white text-sm"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="font-medium">Pedido entregado</p>
+                                {% if order.delivered_at %}
+                                <p class="text-sm text-gray-500">{{ order.delivered_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Order Items -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold mb-4">Productos del Pedido</h2>
+                <div class="space-y-4">
+                    {% for item in order.items %}
+                    <div class="flex items-center justify-between py-3 border-b last:border-0">
+                        <div class="flex items-center">
+                            {% if item.product.image %}
+                            <img src="{{ url_for('static', filename='uploads/' + item.product.image) }}" 
+                                 alt="{{ item.product.name }}" 
+                                 class="w-16 h-16 object-cover rounded-lg mr-4">
+                            {% else %}
+                            <div class="w-16 h-16 bg-gray-200 rounded-lg mr-4 flex items-center justify-center">
+                                <i class="fas fa-image text-gray-400"></i>
+                            </div>
+                            {% endif %}
+                            <div>
+                                <h3 class="font-medium">{{ item.product.name }}</h3>
+                                <p class="text-sm text-gray-500">{{ item.quantity }} x ${{ "%.2f"|format(item.unit_price) }}</p>
+                                {% if item.notes %}
+                                <p class="text-sm text-gray-600 italic">Nota: {{ item.notes }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <span class="font-medium">${{ "%.2f"|format(item.subtotal) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Totals -->
+                <div class="mt-4 pt-4 border-t">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-gray-600">Subtotal</span>
+                        <span class="font-medium">${{ "%.2f"|format(order.subtotal) }}</span>
+                    </div>
+                    {% if order.delivery_fee > 0 %}
+                    <div class="flex justify-between mb-2">
+                        <span class="text-gray-600">Envío</span>
+                        <span class="font-medium">${{ "%.2f"|format(order.delivery_fee) }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="flex justify-between text-lg font-semibold">
+                        <span>Total</span>
+                        <span>${{ "%.2f"|format(order.total) }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Customer Info -->
+        <div class="space-y-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold mb-4">Información del Cliente</h2>
+                <div class="space-y-3">
+                    <div>
+                        <p class="text-sm text-gray-600">Nombre</p>
+                        <p class="font-medium">{{ order.customer_name }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Teléfono</p>
+                        <p class="font-medium">{{ order.customer_phone }}</p>
+                    </div>
+                    {% if order.customer_email %}
+                    <div>
+                        <p class="text-sm text-gray-600">Email</p>
+                        <p class="font-medium">{{ order.customer_email }}</p>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <p class="text-sm text-gray-600">Dirección de entrega</p>
+                        <p class="font-medium">{{ order.delivery_address }}</p>
+                    </div>
+                    {% if order.notes %}
+                    <div>
+                        <p class="text-sm text-gray-600">Notas del cliente</p>
+                        <p class="font-medium">{{ order.notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Payment Info -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold mb-4">Información de Pago</h2>
+                <div class="space-y-3">
+                    <div>
+                        <p class="text-sm text-gray-600">Método de pago</p>
+                        <p class="font-medium">
+                            {% if order.payment_method == 'cash' %}
+                                Efectivo
+                            {% elif order.payment_method == 'transfer' %}
+                                Transferencia
+                            {% else %}
+                                {{ order.payment_method }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Estado del pago</p>
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                            {% if order.payment_status == 'paid' %}bg-green-100 text-green-800
+                            {% elif order.payment_status == 'pending' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-red-100 text-red-800{% endif %}">
+                            {% if order.payment_status == 'paid' %}
+                                Pagado
+                            {% elif order.payment_status == 'pending' %}
+                                Pendiente
+                            {% else %}
+                                {{ order.payment_status }}
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold mb-4">Acciones Rápidas</h2>
+                <div class="space-y-3">
+                    <a href="tel:{{ order.customer_phone }}" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-phone mr-2"></i> Llamar cliente
+                    </a>
+                    {% if order.customer_email %}
+                    <a href="mailto:{{ order.customer_email }}" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-envelope mr-2"></i> Enviar email
+                    </a>
+                    {% endif %}
+                    <button onclick="window.print()" class="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-print mr-2"></i> Imprimir pedido
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status Change Modal -->
+<div id="statusModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <h3 class="text-lg font-semibold mb-4">Cambiar Estado del Pedido</h3>
+        <select id="newStatus" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-4">
+            <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>Pendiente</option>
+            <option value="confirmed" {% if order.status == 'confirmed' %}selected{% endif %}>Confirmado</option>
+            <option value="preparing" {% if order.status == 'preparing' %}selected{% endif %}>Preparando</option>
+            <option value="ready" {% if order.status == 'ready' %}selected{% endif %}>Listo</option>
+            <option value="delivered" {% if order.status == 'delivered' %}selected{% endif %}>Entregado</option>
+            <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>Cancelado</option>
+        </select>
+        <div class="flex justify-end space-x-3">
+            <button onclick="hideStatusModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                Cancelar
+            </button>
+            <button onclick="updateOrderStatus()" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
+                Guardar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function showStatusModal() {
+    document.getElementById('statusModal').classList.remove('hidden');
+}
+
+function hideStatusModal() {
+    document.getElementById('statusModal').classList.add('hidden');
+}
+
+function updateOrderStatus() {
+    const newStatus = document.getElementById('newStatus').value;
+    
+    fetch(`/dashboard/orders/{{ order.id }}/update-status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Error al actualizar el estado: ' + data.message);
+        }
+    });
+}
+</script>
+{% endblock %}
