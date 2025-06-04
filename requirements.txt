@@ -11,3 +11,6 @@ psycopg2-binary==2.9.9
 gunicorn==21.2.0
 Pillow==10.1.0
 python-slugify==8.0.1
+Flask-Mail==0.9.1
+reportlab==4.0.7
+schedule==1.2.0
