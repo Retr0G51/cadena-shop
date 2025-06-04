@@ -1,3 +1,4 @@
+# app/__init__.py
 """
 PedidosSaaS - Sistema de Pedidos Online Multiusuario
 """
@@ -6,8 +7,9 @@ __version__ = '1.0.0'
 __author__ = 'Bruno Bernal'
 
 import os
-from flask import Flask
+from flask import Flask, g
 from flask_login import current_user
+from flask_wtf.csrf import generate_csrf
 from config import config
 from app.extensions import db, login_manager, bcrypt, migrate
 
@@ -74,10 +76,17 @@ def configure_login_manager(app):
 def register_context_processors(app):
     """Registra variables globales para templates"""
     @app.context_processor
-def inject_csrf_token():
-    def generate_csrf():
-        if hasattr(g, 'csrf_token'):
-            return g.csrf_token
-        return ''
-    return dict(csrf_token=generate_csrf)
+    def inject_globals():
+        return {
+            'current_user': current_user,
+            'site_name': 'PedidosSaaS'
         }
+    
+    @app.context_processor
+    def inject_csrf_token():
+        """Inyecta csrf_token en todos los templates"""
+        def generate_csrf_token():
+            if '_csrf_token' not in g:
+                g._csrf_token = generate_csrf()
+            return g._csrf_token
+        return dict(csrf_token=generate_csrf_token)
