@@ -1,402 +1,480 @@
 """
-Rutas y lógica para Analytics Dashboard con optimizaciones para conexiones lentas
+Sistema de Analytics para PedidosSaaS
+Análisis de ventas, productos, clientes y tendencias
 """
-
-from flask import render_template, jsonify, request, send_file, current_app
-from flask_login import login_required, current_user
-from sqlalchemy import func, and_, extract
 from datetime import datetime, timedelta
-import json
-import io
-import csv
-from app.dashboard import bp
-from app.models import Order, OrderItem, Product, User
-from app.utils.decorators import active_business_required
+from decimal import Decimal
+from flask import jsonify
+from sqlalchemy import func, and_, or_, extract
 from app.extensions import db
-from app.utils.cache import cache_analytics  # Implementaremos cache
+from app.models import Order, OrderItem, Product, User
+from app.models.customer import Customer, CustomerGroup
+from app.models.invoice import Invoice
+from app.models.inventory import StockItem, InventoryMovement
 
-
-@bp.route('/analytics')
-@login_required
-@active_business_required
-def analytics():
-    """Vista principal del dashboard analytics"""
-    # Datos básicos para la carga inicial (optimizado)
-    end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=30)
+class Analytics:
+    """Clase principal para análisis de datos"""
     
-    # KPIs principales - consulta optimizada
-    kpis = get_kpis_summary(current_user.id, start_date, end_date)
+    def __init__(self, user_id):
+        self.user_id = user_id
     
-    # Estado de pedidos - usando agregación
-    order_status_summary = db.session.query(
-        Order.status, 
-        func.count(Order.id)
-    ).filter(
-        Order.user_id == current_user.id,
-        Order.created_at >= start_date
-    ).group_by(Order.status).all()
+    def get_dashboard_metrics(self, date_from=None, date_to=None):
+        """Obtiene métricas principales del dashboard"""
+        if not date_from:
+            date_from = datetime.utcnow() - timedelta(days=30)
+        if not date_to:
+            date_to = datetime.utcnow()
+        
+        # Filtro base
+        date_filter = and_(
+            Order.created_at >= date_from,
+            Order.created_at <= date_to,
+            Order.user_id == self.user_id
+        )
+        
+        # Ventas totales
+        total_sales = db.session.query(
+            func.sum(Order.total)
+        ).filter(date_filter, Order.status == 'delivered').scalar() or 0
+        
+        # Número de pedidos
+        total_orders = db.session.query(
+            func.count(Order.id)
+        ).filter(date_filter).scalar() or 0
+        
+        # Pedidos completados
+        completed_orders = db.session.query(
+            func.count(Order.id)
+        ).filter(date_filter, Order.status == 'delivered').scalar() or 0
+        
+        # Ticket promedio
+        avg_order_value = 0
+        if completed_orders > 0:
+            avg_order_value = total_sales / completed_orders
+        
+        # Productos vendidos
+        products_sold = db.session.query(
+            func.sum(OrderItem.quantity)
+        ).join(Order).filter(
+            date_filter,
+            Order.status == 'delivered'
+        ).scalar() or 0
+        
+        # Clientes únicos
+        unique_customers = db.session.query(
+            func.count(func.distinct(Order.customer_phone))
+        ).filter(date_filter).scalar() or 0
+        
+        # Comparación con período anterior
+        prev_date_from = date_from - (date_to - date_from)
+        prev_date_to = date_from
+        
+        prev_sales = db.session.query(
+            func.sum(Order.total)
+        ).filter(
+            and_(
+                Order.created_at >= prev_date_from,
+                Order.created_at < prev_date_to,
+                Order.user_id == self.user_id,
+                Order.status == 'delivered'
+            )
+        ).scalar() or 0
+        
+        # Calcular cambio porcentual
+        sales_change = 0
+        if prev_sales > 0:
+            sales_change = ((total_sales - prev_sales) / prev_sales) * 100
+        
+        return {
+            'total_sales': float(total_sales),
+            'total_orders': total_orders,
+            'completed_orders': completed_orders,
+            'completion_rate': (completed_orders / total_orders * 100) if total_orders > 0 else 0,
+            'avg_order_value': float(avg_order_value),
+            'products_sold': int(products_sold),
+            'unique_customers': unique_customers,
+            'sales_change': float(sales_change),
+            'date_range': {
+                'from': date_from.isoformat(),
+                'to': date_to.isoformat()
+            }
+        }
     
-    order_status_dict = {status: count for status, count in order_status_summary}
+    def get_sales_trend(self, period='daily', days=30):
+        """Obtiene tendencia de ventas"""
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        # Determinar agrupación
+        if period == 'daily':
+            date_trunc = func.date_trunc('day', Order.created_at)
+        elif period == 'weekly':
+            date_trunc = func.date_trunc('week', Order.created_at)
+        elif period == 'monthly':
+            date_trunc = func.date_trunc('month', Order.created_at)
+        else:
+            date_trunc = func.date_trunc('day', Order.created_at)
+        
+        # Query
+        sales_data = db.session.query(
+            date_trunc.label('period'),
+            func.count(Order.id).label('orders'),
+            func.sum(Order.total).label('revenue'),
+            func.avg(Order.total).label('avg_order')
+        ).filter(
+            Order.user_id == self.user_id,
+            Order.created_at >= start_date,
+            Order.created_at <= end_date,
+            Order.status == 'delivered'
+        ).group_by('period').order_by('period').all()
+        
+        return [{
+            'date': row.period.isoformat(),
+            'orders': row.orders,
+            'revenue': float(row.revenue or 0),
+            'avg_order': float(row.avg_order or 0)
+        } for row in sales_data]
     
-    # Top 5 productos para vista rápida (no los 10)
-    product_performance = db.session.query(
-        Product.id,
-        Product.name,
-        Product.category,
-        Product.image,
-        Product.stock,
-        func.sum(OrderItem.quantity).label('units_sold'),
-        func.sum(OrderItem.subtotal).label('revenue')
-    ).join(
-        OrderItem, Product.id == OrderItem.product_id
-    ).join(
-        Order, OrderItem.order_id == Order.id
-    ).filter(
-        Product.user_id == current_user.id,
-        Order.created_at >= start_date,
-        Order.status != 'cancelled'
-    ).group_by(
-        Product.id
-    ).order_by(
-        func.sum(OrderItem.subtotal).desc()
-    ).limit(5).all()
+    def get_top_products(self, limit=10, days=30):
+        """Obtiene productos más vendidos"""
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        top_products = db.session.query(
+            Product.id,
+            Product.name,
+            Product.price,
+            func.sum(OrderItem.quantity).label('quantity_sold'),
+            func.sum(OrderItem.subtotal).label('revenue'),
+            func.count(func.distinct(Order.id)).label('order_count')
+        ).join(
+            OrderItem, Product.id == OrderItem.product_id
+        ).join(
+            Order, Order.id == OrderItem.order_id
+        ).filter(
+            Product.user_id == self.user_id,
+            Order.created_at >= start_date,
+            Order.created_at <= end_date,
+            Order.status == 'delivered'
+        ).group_by(
+            Product.id, Product.name, Product.price
+        ).order_by(
+            func.sum(OrderItem.quantity).desc()
+        ).limit(limit).all()
+        
+        return [{
+            'id': row.id,
+            'name': row.name,
+            'price': float(row.price),
+            'quantity_sold': int(row.quantity_sold),
+            'revenue': float(row.revenue),
+            'order_count': row.order_count
+        } for row in top_products]
     
-    return render_template('dashboard/analytics.html',
-        **kpis,
-        order_status_summary=order_status_dict,
-        product_performance=product_performance
-    )
-
-
-@bp.route('/analytics/data')
-@login_required
-@active_business_required
-@cache_analytics(timeout=300)  # Cache por 5 minutos
-def analytics_data():
-    """API endpoint para datos de analytics (AJAX)"""
-    period = request.args.get('period', '30', type=int)
+    def get_customer_analytics(self):
+        """Análisis de clientes"""
+        # Clientes totales
+        total_customers = Customer.query.filter_by(
+            user_id=self.user_id
+        ).count()
+        
+        # Nuevos clientes (últimos 30 días)
+        new_customers = Customer.query.filter(
+            Customer.user_id == self.user_id,
+            Customer.created_at >= datetime.utcnow() - timedelta(days=30)
+        ).count()
+        
+        # Clientes recurrentes
+        recurring_customers = db.session.query(
+            func.count(func.distinct(Order.customer_phone))
+        ).filter(
+            Order.user_id == self.user_id
+        ).group_by(
+            Order.customer_phone
+        ).having(
+            func.count(Order.id) > 1
+        ).count()
+        
+        # Segmentación por valor
+        customer_segments = db.session.query(
+            func.case(
+                (Customer.total_spent >= 1000, 'VIP'),
+                (Customer.total_spent >= 500, 'Premium'),
+                (Customer.total_spent >= 100, 'Regular'),
+                else_='Nuevo'
+            ).label('segment'),
+            func.count(Customer.id).label('count'),
+            func.avg(Customer.total_spent).label('avg_spent')
+        ).filter(
+            Customer.user_id == self.user_id
+        ).group_by('segment').all()
+        
+        # Tasa de retención
+        retention_rate = 0
+        if total_customers > 0:
+            retention_rate = (recurring_customers / total_customers) * 100
+        
+        return {
+            'total_customers': total_customers,
+            'new_customers': new_customers,
+            'recurring_customers': recurring_customers,
+            'retention_rate': retention_rate,
+            'segments': [{
+                'name': seg.segment,
+                'count': seg.count,
+                'avg_spent': float(seg.avg_spent or 0)
+            } for seg in customer_segments]
+        }
     
-    # Validar período
-    if period not in [7, 30, 90, 365]:
-        period = 30
+    def get_sales_by_hour(self, days=7):
+        """Ventas por hora del día"""
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        hourly_sales = db.session.query(
+            extract('hour', Order.created_at).label('hour'),
+            func.count(Order.id).label('orders'),
+            func.sum(Order.total).label('revenue')
+        ).filter(
+            Order.user_id == self.user_id,
+            Order.created_at >= start_date,
+            Order.created_at <= end_date,
+            Order.status == 'delivered'
+        ).group_by('hour').order_by('hour').all()
+        
+        # Crear array completo de 24 horas
+        hourly_data = {hour: {'orders': 0, 'revenue': 0} for hour in range(24)}
+        
+        for row in hourly_sales:
+            hourly_data[int(row.hour)] = {
+                'orders': row.orders,
+                'revenue': float(row.revenue or 0)
+            }
+        
+        return [
+            {
+                'hour': hour,
+                'orders': data['orders'],
+                'revenue': data['revenue']
+            }
+            for hour, data in sorted(hourly_data.items())
+        ]
     
-    end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=period)
+    def get_category_performance(self):
+        """Rendimiento por categoría"""
+        category_stats = db.session.query(
+            Product.category,
+            func.count(func.distinct(Product.id)).label('product_count'),
+            func.sum(OrderItem.quantity).label('units_sold'),
+            func.sum(OrderItem.subtotal).label('revenue')
+        ).join(
+            OrderItem, Product.id == OrderItem.product_id
+        ).join(
+            Order, Order.id == OrderItem.order_id
+        ).filter(
+            Product.user_id == self.user_id,
+            Order.status == 'delivered'
+        ).group_by(Product.category).all()
+        
+        return [{
+            'category': row.category or 'Sin categoría',
+            'product_count': row.product_count,
+            'units_sold': int(row.units_sold or 0),
+            'revenue': float(row.revenue or 0)
+        } for row in category_stats]
     
-    try:
-        # Obtener datos con consultas optimizadas
-        analytics_data = {
-            'sales_trend': get_sales_trend(current_user.id, start_date, end_date, period),
-            'top_products': get_top_products(current_user.id, start_date, end_date),
-            'categories': get_category_distribution(current_user.id, start_date, end_date),
-            'peak_hours': get_peak_hours(current_user.id, start_date, end_date)
+    def get_inventory_metrics(self):
+        """Métricas de inventario"""
+        # Valor total del inventario
+        inventory_value = db.session.query(
+            func.sum(StockItem.quantity * StockItem.average_cost)
+        ).join(
+            Product, Product.id == StockItem.product_id
+        ).filter(
+            Product.user_id == self.user_id
+        ).scalar() or 0
+        
+        # Productos con bajo stock
+        low_stock_products = StockItem.query.join(
+            Product
+        ).filter(
+            Product.user_id == self.user_id,
+            StockItem.quantity <= StockItem.min_stock
+        ).count()
+        
+        # Rotación de inventario (últimos 30 días)
+        cogs = db.session.query(
+            func.sum(OrderItem.quantity * StockItem.average_cost)
+        ).join(
+            Product, Product.id == OrderItem.product_id
+        ).join(
+            StockItem, StockItem.product_id == Product.id
+        ).join(
+            Order, Order.id == OrderItem.order_id
+        ).filter(
+            Product.user_id == self.user_id,
+            Order.created_at >= datetime.utcnow() - timedelta(days=30),
+            Order.status == 'delivered'
+        ).scalar() or 0
+        
+        # Calcular rotación
+        inventory_turnover = 0
+        if inventory_value > 0:
+            inventory_turnover = (cogs * 12) / inventory_value  # Anualizado
+        
+        return {
+            'inventory_value': float(inventory_value),
+            'low_stock_products': low_stock_products,
+            'inventory_turnover': float(inventory_turnover),
+            'avg_days_to_sell': 365 / inventory_turnover if inventory_turnover > 0 else 0
+        }
+    
+    def get_financial_summary(self, month=None, year=None):
+        """Resumen financiero mensual"""
+        if not month:
+            month = datetime.utcnow().month
+        if not year:
+            year = datetime.utcnow().year
+        
+        # Ingresos del mes
+        monthly_revenue = db.session.query(
+            func.sum(Invoice.total)
+        ).filter(
+            Invoice.user_id == self.user_id,
+            extract('month', Invoice.issued_at) == month,
+            extract('year', Invoice.issued_at) == year,
+            Invoice.status == 'paid'
+        ).scalar() or 0
+        
+        # Cuentas por cobrar
+        accounts_receivable = db.session.query(
+            func.sum(Invoice.total - func.coalesce(
+                db.session.query(func.sum(InvoicePayment.amount))
+                .filter(InvoicePayment.invoice_id == Invoice.id)
+                .scalar_subquery(), 0
+            ))
+        ).filter(
+            Invoice.user_id == self.user_id,
+            Invoice.status.in_(['issued', 'partial'])
+        ).scalar() or 0
+        
+        # Facturas vencidas
+        overdue_invoices = Invoice.query.filter(
+            Invoice.user_id == self.user_id,
+            Invoice.status != 'paid',
+            Invoice.due_date < datetime.utcnow()
+        ).count()
+        
+        # Margen bruto
+        revenue = db.session.query(
+            func.sum(OrderItem.subtotal)
+        ).join(
+            Order, Order.id == OrderItem.order_id
+        ).filter(
+            Order.user_id == self.user_id,
+            extract('month', Order.created_at) == month,
+            extract('year', Order.created_at) == year,
+            Order.status == 'delivered'
+        ).scalar() or 0
+        
+        cost = db.session.query(
+            func.sum(OrderItem.quantity * StockItem.average_cost)
+        ).join(
+            Product, Product.id == OrderItem.product_id
+        ).join(
+            StockItem, StockItem.product_id == Product.id
+        ).join(
+            Order, Order.id == OrderItem.order_id
+        ).filter(
+            Order.user_id == self.user_id,
+            extract('month', Order.created_at) == month,
+            extract('year', Order.created_at) == year,
+            Order.status == 'delivered'
+        ).scalar() or 0
+        
+        gross_margin = 0
+        if revenue > 0:
+            gross_margin = ((revenue - cost) / revenue) * 100
+        
+        return {
+            'month': f"{year}-{month:02d}",
+            'revenue': float(monthly_revenue),
+            'accounts_receivable': float(accounts_receivable),
+            'overdue_invoices': overdue_invoices,
+            'gross_margin': float(gross_margin),
+            'net_profit': float(revenue - cost)
+        }
+    
+    def get_predictive_analytics(self):
+        """Análisis predictivo básico"""
+        # Tendencia de ventas (regresión lineal simple)
+        sales_history = db.session.query(
+            func.date_trunc('day', Order.created_at).label('date'),
+            func.sum(Order.total).label('revenue')
+        ).filter(
+            Order.user_id == self.user_id,
+            Order.created_at >= datetime.utcnow() - timedelta(days=90),
+            Order.status == 'delivered'
+        ).group_by('date').order_by('date').all()
+        
+        if len(sales_history) < 7:
+            return {'forecast': [], 'trend': 'insufficient_data'}
+        
+        # Calcular tendencia simple
+        revenues = [float(row.revenue) for row in sales_history]
+        avg_revenue = sum(revenues) / len(revenues)
+        
+        # Determinar tendencia
+        recent_avg = sum(revenues[-7:]) / 7
+        older_avg = sum(revenues[:7]) / 7
+        
+        trend = 'stable'
+        if recent_avg > older_avg * 1.1:
+            trend = 'growing'
+        elif recent_avg < older_avg * 0.9:
+            trend = 'declining'
+        
+        # Proyección simple para próximos 7 días
+        growth_rate = (recent_avg - older_avg) / older_avg if older_avg > 0 else 0
+        forecast = []
+        
+        for i in range(1, 8):
+            projected_revenue = recent_avg * (1 + growth_rate * i / 30)
+            forecast.append({
+                'day': i,
+                'projected_revenue': projected_revenue
+            })
+        
+        return {
+            'trend': trend,
+            'avg_daily_revenue': avg_revenue,
+            'growth_rate': growth_rate * 100,
+            'forecast': forecast
+        }
+    
+    def export_analytics_data(self, report_type='full'):
+        """Exporta datos de analytics"""
+        data = {
+            'generated_at': datetime.utcnow().isoformat(),
+            'business_id': self.user_id,
+            'report_type': report_type
         }
         
-        kpis = get_kpis_summary(current_user.id, start_date, end_date)
+        if report_type in ['full', 'dashboard']:
+            data['dashboard_metrics'] = self.get_dashboard_metrics()
         
-        return jsonify({
-            'success': True,
-            'analytics': analytics_data,
-            'kpis': kpis
-        })
-    except Exception as e:
-        current_app.logger.error(f"Error en analytics_data: {str(e)}")
-        return jsonify({'success': False, 'message': 'Error al cargar datos'}), 500
-
-
-def get_kpis_summary(user_id, start_date, end_date):
-    """Obtiene KPIs resumidos con comparación de período anterior"""
-    # Período actual
-    current_stats = db.session.query(
-        func.count(Order.id).label('total_orders'),
-        func.sum(Order.total).label('total_revenue'),
-        func.avg(Order.total).label('avg_ticket'),
-        func.count(func.distinct(
-            func.date(Order.created_at)
-        )).label('active_days')
-    ).filter(
-        Order.user_id == user_id,
-        Order.created_at.between(start_date, end_date),
-        Order.status != 'cancelled'
-    ).first()
-    
-    # Período anterior (mismo número de días)
-    period_days = (end_date - start_date).days
-    prev_end_date = start_date
-    prev_start_date = prev_end_date - timedelta(days=period_days)
-    
-    prev_stats = db.session.query(
-        func.count(Order.id).label('total_orders'),
-        func.sum(Order.total).label('total_revenue')
-    ).filter(
-        Order.user_id == user_id,
-        Order.created_at.between(prev_start_date, prev_end_date),
-        Order.status != 'cancelled'
-    ).first()
-    
-    # Calcular cambios porcentuales
-    def calculate_change(current, previous):
-        if not previous or previous == 0:
-            return 0
-        return round(((current - previous) / previous) * 100, 1)
-    
-    total_revenue = float(current_stats.total_revenue or 0)
-    total_orders = int(current_stats.total_orders or 0)
-    avg_ticket = float(current_stats.avg_ticket or 0)
-    
-    prev_revenue = float(prev_stats.total_revenue or 0)
-    prev_orders = int(prev_stats.total_orders or 0)
-    
-    # Pedidos de hoy
-    today_orders = db.session.query(func.count(Order.id)).filter(
-        Order.user_id == user_id,
-        func.date(Order.created_at) == datetime.utcnow().date()
-    ).scalar() or 0
-    
-    # Tasa de conversión (simulada por ahora)
-    completed_orders = total_orders
-    total_visits = total_orders * 3  # Estimación simple
-    conversion_rate = round((completed_orders / total_visits * 100) if total_visits > 0 else 0, 1)
-    
-    return {
-        'total_revenue': total_revenue,
-        'total_orders': total_orders,
-        'avg_ticket': avg_ticket,
-        'new_orders': today_orders,
-        'revenue_change': calculate_change(total_revenue, prev_revenue),
-        'orders_change': calculate_change(total_orders, prev_orders),
-        'avg_ticket_change': calculate_change(avg_ticket, prev_revenue / prev_orders if prev_orders > 0 else 0),
-        'conversion_rate': conversion_rate,
-        'completed_orders': completed_orders,
-        'total_visits': total_visits
-    }
-
-
-def get_sales_trend(user_id, start_date, end_date, period):
-    """Obtiene tendencia de ventas optimizada para el período"""
-    # Agrupar por día, semana o mes según el período
-    if period <= 30:
-        # Agrupar por día
-        date_format = func.date(Order.created_at)
-        group_format = '%d/%m'
-    elif period <= 90:
-        # Agrupar por semana
-        date_format = func.date_trunc('week', Order.created_at)
-        group_format = 'Sem %W'
-    else:
-        # Agrupar por mes
-        date_format = func.date_trunc('month', Order.created_at)
-        group_format = '%b %Y'
-    
-    sales_data = db.session.query(
-        date_format.label('date'),
-        func.sum(Order.total).label('revenue'),
-        func.count(Order.id).label('orders')
-    ).filter(
-        Order.user_id == user_id,
-        Order.created_at.between(start_date, end_date),
-        Order.status != 'cancelled'
-    ).group_by(date_format).order_by(date_format).all()
-    
-    # Formatear para Chart.js
-    labels = []
-    revenue_data = []
-    orders_data = []
-    
-    for row in sales_data:
-        if period <= 30:
-            labels.append(row.date.strftime('%d/%m'))
-        else:
-            labels.append(row.date.strftime(group_format))
-        revenue_data.append(float(row.revenue or 0))
-        orders_data.append(int(row.orders or 0))
-    
-    return {
-        'labels': labels,
-        'data': revenue_data,
-        'orders': orders_data
-    }
-
-
-def get_top_products(user_id, start_date, end_date, limit=10):
-    """Obtiene los productos más vendidos"""
-    products = db.session.query(
-        Product.name,
-        func.sum(OrderItem.quantity).label('units_sold')
-    ).join(
-        OrderItem, Product.id == OrderItem.product_id
-    ).join(
-        Order, OrderItem.order_id == Order.id
-    ).filter(
-        Product.user_id == user_id,
-        Order.created_at.between(start_date, end_date),
-        Order.status != 'cancelled'
-    ).group_by(
-        Product.id, Product.name
-    ).order_by(
-        func.sum(OrderItem.quantity).desc()
-    ).limit(limit).all()
-    
-    return {
-        'labels': [p.name[:20] + '...' if len(p.name) > 20 else p.name for p in products],
-        'data': [int(p.units_sold) for p in products]
-    }
-
-
-def get_category_distribution(user_id, start_date, end_date):
-    """Obtiene distribución de ventas por categoría"""
-    categories = db.session.query(
-        func.coalesce(Product.category, 'Sin categoría').label('category'),
-        func.sum(OrderItem.subtotal).label('revenue')
-    ).join(
-        OrderItem, Product.id == OrderItem.product_id
-    ).join(
-        Order, OrderItem.order_id == Order.id
-    ).filter(
-        Product.user_id == user_id,
-        Order.created_at.between(start_date, end_date),
-        Order.status != 'cancelled'
-    ).group_by(
-        Product.category
-    ).order_by(
-        func.sum(OrderItem.subtotal).desc()
-    ).limit(5).all()  # Top 5 categorías
-    
-    return {
-        'labels': [c.category for c in categories],
-        'data': [float(c.revenue) for c in categories]
-    }
-
-
-def get_peak_hours(user_id, start_date, end_date):
-    """Obtiene las horas de mayor actividad"""
-    # Agrupar pedidos por hora del día
-    hours_data = db.session.query(
-        extract('hour', Order.created_at).label('hour'),
-        func.count(Order.id).label('orders')
-    ).filter(
-        Order.user_id == user_id,
-        Order.created_at.between(start_date, end_date)
-    ).group_by(
-        extract('hour', Order.created_at)
-    ).all()
-    
-    # Crear array de 24 horas
-    hours_dict = {int(h.hour): int(h.orders) for h in hours_data}
-    
-    labels = []
-    data = []
-    
-    for hour in range(24):
-        if hour == 0:
-            label = '12 AM'
-        elif hour < 12:
-            label = f'{hour} AM'
-        elif hour == 12:
-            label = '12 PM'
-        else:
-            label = f'{hour - 12} PM'
+        if report_type in ['full', 'sales']:
+            data['sales_trend'] = self.get_sales_trend()
+            data['top_products'] = self.get_top_products()
+            data['hourly_sales'] = self.get_sales_by_hour()
         
-        labels.append(label)
-        data.append(hours_dict.get(hour, 0))
-    
-    return {
-        'labels': labels,
-        'data': data
-    }
-
-
-@bp.route('/analytics/export')
-@login_required
-@active_business_required
-def export_analytics():
-    """Exporta reporte de analytics en CSV (ligero para conexiones lentas)"""
-    period = request.args.get('period', '30', type=int)
-    format_type = request.args.get('format', 'csv')
-    
-    end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=period)
-    
-    # Obtener datos
-    orders = Order.query.filter(
-        Order.user_id == current_user.id,
-        Order.created_at.between(start_date, end_date)
-    ).order_by(Order.created_at.desc()).all()
-    
-    if format_type == 'csv':
-        # Crear CSV en memoria
-        output = io.StringIO()
-        writer = csv.writer(output)
+        if report_type in ['full', 'customers']:
+            data['customer_analytics'] = self.get_customer_analytics()
         
-        # Headers
-        writer.writerow([
-            'Fecha', 'Número Pedido', 'Cliente', 'Total', 
-            'Estado', 'Productos', 'Cantidad Total'
-        ])
+        if report_type in ['full', 'inventory']:
+            data['inventory_metrics'] = self.get_inventory_metrics()
         
-        # Datos
-        for order in orders:
-            total_items = sum(item.quantity for item in order.items)
-            products = ', '.join([item.product.name for item in order.items])
-            
-            writer.writerow([
-                order.created_at.strftime('%Y-%m-%d %H:%M'),
-                order.order_number,
-                order.customer_name,
-                f"${order.total:.2f}",
-                order.get_status_display(),
-                products,
-                total_items
-            ])
+        if report_type in ['full', 'financial']:
+            data['financial_summary'] = self.get_financial_summary()
         
-        # Preparar descarga
-        output.seek(0)
-        output_bytes = io.BytesIO(output.getvalue().encode('utf-8-sig'))  # UTF-8 with BOM para Excel
-        
-        return send_file(
-            output_bytes,
-            mimetype='text/csv',
-            as_attachment=True,
-            download_name=f'reporte_ventas_{datetime.now().strftime("%Y%m%d")}.csv'
-        )
-    
-    return jsonify({'error': 'Formato no soportado'}), 400
-
-
-# Función auxiliar para cache
-def cache_analytics(timeout=300):
-    """
-    Decorador simple para cachear respuestas de analytics
-    En producción usar Redis o Memcached
-    """
-    def decorator(f):
-        from functools import wraps
-        cache = {}
-        
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            # Crear key única basada en user_id y parámetros
-            cache_key = f"{current_user.id}:{request.args.get('period', '30')}"
-            
-            # Verificar cache
-            if cache_key in cache:
-                cached_data, timestamp = cache[cache_key]
-                if datetime.utcnow() - timestamp < timedelta(seconds=timeout):
-                    return cached_data
-            
-            # Obtener datos frescos
-            result = f(*args, **kwargs)
-            
-            # Guardar en cache
-            cache[cache_key] = (result, datetime.utcnow())
-            
-            # Limpiar cache viejo (simple estrategia)
-            if len(cache) > 100:
-                oldest_key = min(cache.keys(), key=lambda k: cache[k][1])
-                del cache[oldest_key]
-            
-            return result
-        
-        return decorated_function
-    return decorator
+        return data
