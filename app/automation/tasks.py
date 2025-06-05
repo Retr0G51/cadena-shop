@@ -1,537 +1,441 @@
 """
-Sistema de automatización para tareas programadas y recordatorios
-Optimizado para funcionar con recursos limitados
+Sistema de Automatización para PedidosSaaS
+Tareas programadas, notificaciones y procesos automáticos
 """
-
-import os
 from datetime import datetime, timedelta
+from decimal import Decimal
 from flask import current_app, render_template
-from flask_mail import Mail, Message
-from app.extensions import db
-from app.models import User, Order, Invoice, Customer, Product, StockAlert
-from app.models.invoice import Invoice
-from app.models.inventory import StockMovement, InventoryValuation
-from app.models.customer import Customer, CustomerInteraction
-import logging
-from functools import wraps
-import schedule
-import time
-import threading
 from sqlalchemy import and_, or_
+from app import db
+from app.models import User, Order, Product
+from app.models.invoice import Invoice, RecurringInvoice
+from app.models.inventory import StockItem, StockAlert
+from app.models.customer import Customer, MarketingCampaign, CampaignRecipient
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import logging
 
-
-# Configurar logging
 logger = logging.getLogger(__name__)
 
-
-class AutomationSystem:
-    """Sistema principal de automatización"""
+class AutomationTasks:
+    """Clase principal para tareas automatizadas"""
     
-    def __init__(self, app=None):
-        self.app = app
-        self.mail = None
-        self.running = False
-        self.thread = None
+    @staticmethod
+    def run_daily_tasks():
+        """Ejecuta todas las tareas diarias"""
+        logger.info("Iniciando tareas diarias...")
         
-    def init_app(self, app):
-        """Inicializa el sistema con la aplicación Flask"""
-        self.app = app
-        self.mail = Mail(app)
-        
-        # Configurar tareas programadas
-        self.setup_scheduled_tasks()
-        
-        # Iniciar en un thread separado
-        if app.config.get('ENABLE_AUTOMATION', True):
-            self.start()
+        try:
+            AutomationTasks.send_daily_summaries()
+            AutomationTasks.check_low_stock()
+            AutomationTasks.process_recurring_invoices()
+            AutomationTasks.check_overdue_invoices()
+            AutomationTasks.update_customer_segments()
+            AutomationTasks.clean_old_data()
+            logger.info("Tareas diarias completadas")
+        except Exception as e:
+            logger.error(f"Error en tareas diarias: {str(e)}")
     
-    def setup_scheduled_tasks(self):
-        """Configura todas las tareas programadas"""
-        # Tareas diarias
-        schedule.every().day.at("09:00").do(self.daily_tasks)
-        schedule.every().day.at("14:00").do(self.check_pending_payments)
-        schedule.every().day.at("18:00").do(self.send_daily_summary)
-        
-        # Tareas cada hora
-        schedule.every().hour.do(self.check_low_stock)
-        
-        # Tareas semanales
-        schedule.every().monday.at("10:00").do(self.weekly_reports)
-        
-        # Tareas mensuales (primer día del mes)
-        schedule.every().day.at("01:00").do(self.monthly_tasks)
-        
-        # Backup automático (cada 6 horas)
-        schedule.every(6).hours.do(self.backup_database)
-    
-    def start(self):
-        """Inicia el sistema de automatización en un thread"""
-        if not self.running:
-            self.running = True
-            self.thread = threading.Thread(target=self._run_scheduler)
-            self.thread.daemon = True
-            self.thread.start()
-            logger.info("Sistema de automatización iniciado")
-    
-    def stop(self):
-        """Detiene el sistema de automatización"""
-        self.running = False
-        if self.thread:
-            self.thread.join()
-        logger.info("Sistema de automatización detenido")
-    
-    def _run_scheduler(self):
-        """Ejecuta el scheduler en un loop"""
-        while self.running:
-            try:
-                schedule.run_pending()
-                time.sleep(60)  # Verificar cada minuto
-            except Exception as e:
-                logger.error(f"Error en scheduler: {e}")
-    
-    def daily_tasks(self):
-        """Tareas diarias automáticas"""
-        with self.app.app_context():
-            try:
-                # 1. Actualizar estadísticas de clientes
-                self.update_customer_statistics()
-                
-                # 2. Verificar cumpleaños
-                self.check_customer_birthdays()
-                
-                # 3. Actualizar segmentación automática
-                self.update_customer_segments()
-                
-                # 4. Limpiar datos antiguos
-                self.cleanup_old_data()
-                
-                logger.info("Tareas diarias completadas")
-            except Exception as e:
-                logger.error(f"Error en tareas diarias: {e}")
-    
-    def check_pending_payments(self):
-        """Verifica pagos pendientes y envía recordatorios"""
-        with self.app.app_context():
-            try:
-                # Facturas vencidas
-                overdue_invoices = Invoice.query.filter(
-                    Invoice.status == 'sent',
-                    Invoice.due_date < datetime.utcnow(),
-                    Invoice.payment_status != 'paid'
-                ).all()
-                
-                for invoice in overdue_invoices:
-                    # Actualizar estado
-                    invoice.status = 'overdue'
-                    
-                    # Enviar recordatorio si no se ha enviado en los últimos 3 días
-                    if not invoice.last_reminder_sent or \
-                       (datetime.utcnow() - invoice.last_reminder_sent).days >= 3:
-                        self.send_payment_reminder(invoice)
-                        invoice.last_reminder_sent = datetime.utcnow()
-                
-                db.session.commit()
-                logger.info(f"Procesados {len(overdue_invoices)} pagos vencidos")
-                
-            except Exception as e:
-                logger.error(f"Error verificando pagos: {e}")
-                db.session.rollback()
-    
-    def check_low_stock(self):
-        """Verifica productos con stock bajo y crea alertas"""
-        with self.app.app_context():
-            try:
-                # Productos con stock bajo
-                from app.models import Product
-                
-                low_stock_products = Product.query.filter(
-                    Product.is_active == True,
-                    Product.track_inventory == True,
-                    Product.stock <= Product.min_stock
-                ).all()
-                
-                alerts_created = 0
-                for product in low_stock_products:
-                    # Crear o actualizar alerta
-                    alert = StockAlert.create_or_update_alert(product)
-                    
-                    # Notificar si es crítico o no se ha notificado en 24h
-                    if alert.severity == 'critical' or not alert.last_notified_at or \
-                       (datetime.utcnow() - alert.last_notified_at).hours >= 24:
-                        self.notify_stock_alert(alert)
-                        alert.last_notified_at = datetime.utcnow()
-                        alerts_created += 1
-                
-                db.session.commit()
-                
-                if alerts_created > 0:
-                    logger.info(f"Creadas {alerts_created} alertas de stock")
-                    
-            except Exception as e:
-                logger.error(f"Error verificando stock: {e}")
-                db.session.rollback()
-    
-    def send_daily_summary(self):
+    @staticmethod
+    def send_daily_summaries():
         """Envía resumen diario a cada negocio"""
-        with self.app.app_context():
-            try:
-                # Obtener negocios activos
-                active_businesses = User.query.filter_by(
-                    is_active=True,
-                    accept_orders=True
-                ).all()
-                
-                for business in active_businesses:
-                    # Generar resumen del día
-                    summary = self.generate_daily_summary(business)
-                    
-                    # Enviar por email si está configurado
-                    if business.email and business.notification_preferences.get('daily_summary', True):
-                        self.send_summary_email(business, summary)
-                
-                logger.info(f"Enviados {len(active_businesses)} resúmenes diarios")
-                
-            except Exception as e:
-                logger.error(f"Error enviando resúmenes: {e}")
-    
-    def weekly_reports(self):
-        """Genera reportes semanales"""
-        with self.app.app_context():
-            try:
-                # Generar reportes para cada negocio
-                businesses = User.query.filter_by(is_active=True).all()
-                
-                for business in businesses:
-                    # Generar reporte
-                    report = self.generate_weekly_report(business)
-                    
-                    # Guardar en base de datos
-                    self.save_report(business, 'weekly', report)
-                    
-                    # Notificar si está habilitado
-                    if business.notification_preferences.get('weekly_reports', True):
-                        self.notify_report_ready(business, 'weekly')
-                
-                logger.info(f"Generados {len(businesses)} reportes semanales")
-                
-            except Exception as e:
-                logger.error(f"Error generando reportes semanales: {e}")
-    
-    def monthly_tasks(self):
-        """Tareas mensuales"""
-        # Solo ejecutar el primer día del mes
-        if datetime.utcnow().day != 1:
-            return
+        yesterday = datetime.utcnow() - timedelta(days=1)
+        today = datetime.utcnow()
         
-        with self.app.app_context():
+        active_users = User.query.filter_by(is_active=True).all()
+        
+        for user in active_users:
+            # Obtener estadísticas del día
+            daily_orders = Order.query.filter(
+                Order.user_id == user.id,
+                Order.created_at >= yesterday,
+                Order.created_at < today
+            ).all()
+            
+            if not daily_orders:
+                continue
+            
+            # Calcular métricas
+            total_orders = len(daily_orders)
+            completed_orders = len([o for o in daily_orders if o.status == 'delivered'])
+            total_revenue = sum(o.total for o in daily_orders if o.status == 'delivered')
+            
+            # Productos más vendidos
+            product_sales = {}
+            for order in daily_orders:
+                for item in order.items:
+                    if item.product_id not in product_sales:
+                        product_sales[item.product_id] = {
+                            'name': item.product.name,
+                            'quantity': 0,
+                            'revenue': 0
+                        }
+                    product_sales[item.product_id]['quantity'] += item.quantity
+                    product_sales[item.product_id]['revenue'] += item.subtotal
+            
+            top_products = sorted(
+                product_sales.values(),
+                key=lambda x: x['revenue'],
+                reverse=True
+            )[:5]
+            
+            # Enviar email
             try:
-                # 1. Generar valoración de inventario
-                self.generate_inventory_valuations()
-                
-                # 2. Actualizar lifetime value de clientes
-                self.update_customer_lifetime_values()
-                
-                # 3. Archivar datos antiguos
-                self.archive_old_data()
-                
-                # 4. Generar reportes mensuales
-                self.generate_monthly_reports()
-                
-                logger.info("Tareas mensuales completadas")
-                
+                AutomationTasks._send_email(
+                    to=user.email,
+                    subject=f"Resumen diario - {user.business_name}",
+                    template='emails/daily_summary.html',
+                    context={
+                        'user': user,
+                        'date': yesterday.strftime('%d/%m/%Y'),
+                        'total_orders': total_orders,
+                        'completed_orders': completed_orders,
+                        'total_revenue': total_revenue,
+                        'completion_rate': (completed_orders / total_orders * 100) if total_orders > 0 else 0,
+                        'top_products': top_products
+                    }
+                )
+                logger.info(f"Resumen diario enviado a {user.email}")
             except Exception as e:
-                logger.error(f"Error en tareas mensuales: {e}")
+                logger.error(f"Error enviando resumen a {user.email}: {str(e)}")
     
-    def backup_database(self):
-        """Realiza backup de la base de datos"""
-        with self.app.app_context():
-            try:
-                # Crear directorio de backups si no existe
-                backup_dir = os.path.join(self.app.root_path, 'backups')
-                os.makedirs(backup_dir, exist_ok=True)
+    @staticmethod
+    def check_low_stock():
+        """Verifica productos con stock bajo y crea alertas"""
+        stock_items = db.session.query(StockItem).join(
+            Product
+        ).filter(
+            StockItem.quantity <= StockItem.reorder_point
+        ).all()
+        
+        for stock_item in stock_items:
+            # Verificar si ya existe alerta activa
+            existing_alert = StockAlert.query.filter_by(
+                product_id=stock_item.product_id,
+                warehouse_id=stock_item.warehouse_id,
+                alert_type='low_stock',
+                is_resolved=False
+            ).first()
+            
+            if not existing_alert:
+                alert = StockAlert(
+                    user_id=stock_item.product.user_id,
+                    product_id=stock_item.product_id,
+                    warehouse_id=stock_item.warehouse_id,
+                    alert_type='low_stock',
+                    threshold_value=stock_item.reorder_point,
+                    current_value=stock_item.quantity,
+                    message=f'Stock bajo: {stock_item.product.name} - {stock_item.quantity} unidades restantes'
+                )
+                db.session.add(alert)
                 
-                # Generar nombre del archivo
-                timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-                
-                # Si es PostgreSQL
-                db_url = self.app.config['SQLALCHEMY_DATABASE_URI']
-                if 'postgresql' in db_url:
-                    backup_file = os.path.join(backup_dir, f'backup_{timestamp}.sql')
-                    
-                    # Comando pg_dump
-                    import subprocess
-                    cmd = f'pg_dump {db_url} > {backup_file}'
-                    subprocess.run(cmd, shell=True, check=True)
-                    
-                    # Comprimir
-                    import gzip
-                    with open(backup_file, 'rb') as f_in:
-                        with gzip.open(f'{backup_file}.gz', 'wb') as f_out:
-                            f_out.writelines(f_in)
-                    
-                    # Eliminar archivo sin comprimir
-                    os.remove(backup_file)
-                    
-                    logger.info(f"Backup creado: {backup_file}.gz")
-                
-                # Limpiar backups antiguos (mantener últimos 30)
-                self.cleanup_old_backups(backup_dir, keep_last=30)
-                
-            except Exception as e:
-                logger.error(f"Error creando backup: {e}")
-    
-    # Métodos auxiliares
-    
-    def update_customer_statistics(self):
-        """Actualiza estadísticas de todos los clientes"""
-        customers = Customer.query.all()
-        for customer in customers:
-            customer.update_statistics()
+                # Enviar notificación
+                user = User.query.get(stock_item.product.user_id)
+                if user:
+                    try:
+                        AutomationTasks._send_email(
+                            to=user.email,
+                            subject=f"Alerta de stock bajo - {stock_item.product.name}",
+                            template='emails/stock_alert.html',
+                            context={
+                                'user': user,
+                                'product': stock_item.product,
+                                'current_stock': stock_item.quantity,
+                                'reorder_point': stock_item.reorder_point,
+                                'warehouse': stock_item.warehouse.name
+                            }
+                        )
+                    except Exception as e:
+                        logger.error(f"Error enviando alerta de stock: {str(e)}")
+        
         db.session.commit()
+        logger.info(f"Verificación de stock completada. {len(stock_items)} productos con stock bajo.")
     
-    def check_customer_birthdays(self):
-        """Verifica cumpleaños próximos y envía felicitaciones"""
-        # Clientes con cumpleaños en los próximos 7 días
+    @staticmethod
+    def process_recurring_invoices():
+        """Procesa facturas recurrentes"""
         today = datetime.utcnow().date()
         
-        customers_with_birthdays = Customer.query.filter(
-            Customer.birthdate.isnot(None),
-            Customer.status == 'active',
-            Customer.marketing_consent == True
+        recurring_invoices = RecurringInvoice.query.filter(
+            RecurringInvoice.is_active == True,
+            RecurringInvoice.next_issue_date <= today
         ).all()
         
-        for customer in customers_with_birthdays:
-            if customer.is_birthday_soon:
-                # Crear interacción
-                interaction = CustomerInteraction(
-                    customer_id=customer.id,
-                    user_id=customer.user_id,
-                    interaction_type='note',
-                    subject='Cumpleaños próximo',
-                    description=f'Cumpleaños el {customer.birthdate.strftime("%d/%m")}',
-                    follow_up_required=True,
-                    follow_up_date=customer.birthdate.replace(year=today.year)
-                )
-                db.session.add(interaction)
+        for recurring in recurring_invoices:
+            try:
+                # Crear nueva factura
+                invoice = recurring.create_invoice()
+                invoice.calculate_totals()
+                invoice.status = 'issued'
+                invoice.issued_at = datetime.utcnow()
+                
+                # Establecer fecha de vencimiento (30 días por defecto)
+                invoice.due_date = datetime.utcnow() + timedelta(days=30)
+                
+                db.session.add(invoice)
+                
+                # Actualizar próxima fecha
+                recurring.calculate_next_date()
+                recurring.last_issued_date = datetime.utcnow()
+                
+                # Enviar factura por email
+                if invoice.customer_email:
+                    AutomationTasks._send_invoice_email(invoice)
+                
+                logger.info(f"Factura recurrente generada: {invoice.invoice_number}")
+                
+            except Exception as e:
+                logger.error(f"Error procesando factura recurrente {recurring.id}: {str(e)}")
+        
+        db.session.commit()
+        logger.info(f"Procesadas {len(recurring_invoices)} facturas recurrentes")
     
-    def update_customer_segments(self):
-        """Actualiza segmentación automática de clientes"""
-        from app.models.customer import CustomerGroup
-        
-        auto_groups = CustomerGroup.query.filter_by(
-            group_type='automatic',
-            is_active=True
+    @staticmethod
+    def check_overdue_invoices():
+        """Verifica facturas vencidas y envía recordatorios"""
+        overdue_invoices = Invoice.query.filter(
+            Invoice.status.in_(['issued', 'partial']),
+            Invoice.due_date < datetime.utcnow()
         ).all()
         
-        for group in auto_groups:
-            group.update_automatic_members()
+        for invoice in overdue_invoices:
+            days_overdue = (datetime.utcnow() - invoice.due_date).days
+            
+            # Enviar recordatorios en intervalos: 1, 7, 15, 30 días
+            if days_overdue in [1, 7, 15, 30]:
+                try:
+                    user = User.query.get(invoice.user_id)
+                    
+                    # Enviar recordatorio al cliente
+                    if invoice.customer_email:
+                        AutomationTasks._send_email(
+                            to=invoice.customer_email,
+                            subject=f"Recordatorio de pago - Factura {invoice.invoice_number}",
+                            template='emails/payment_reminder.html',
+                            context={
+                                'invoice': invoice,
+                                'business': user,
+                                'days_overdue': days_overdue,
+                                'pending_amount': invoice.get_pending_amount()
+                            }
+                        )
+                    
+                    # Notificar al negocio
+                    AutomationTasks._send_email(
+                        to=user.email,
+                        subject=f"Factura vencida - {invoice.invoice_number}",
+                        body=f"La factura {invoice.invoice_number} de {invoice.customer_name} está vencida hace {days_overdue} días."
+                    )
+                    
+                    logger.info(f"Recordatorio enviado para factura {invoice.invoice_number}")
+                    
+                except Exception as e:
+                    logger.error(f"Error enviando recordatorio para factura {invoice.id}: {str(e)}")
+        
+        logger.info(f"Verificadas {len(overdue_invoices)} facturas vencidas")
+    
+    @staticmethod
+    def update_customer_segments():
+        """Actualiza segmentación automática de clientes"""
+        customers = Customer.query.filter_by(is_active=True).all()
+        
+        for customer in customers:
+            # Actualizar métricas
+            customer.update_metrics()
+            
+            # Segmentación automática basada en valor
+            if customer.total_spent >= 1000:
+                customer.segment = 'vip'
+            elif customer.total_spent >= 500:
+                customer.segment = 'premium'
+            elif customer.total_spent >= 100:
+                customer.segment = 'regular'
+            else:
+                customer.segment = 'new'
+            
+            # Detectar clientes en riesgo
+            if customer.is_at_risk:
+                customer.add_tag('at_risk')
+                
+                # Crear campaña de retención si no existe
+                existing_campaign = MarketingCampaign.query.filter_by(
+                    user_id=customer.user_id,
+                    campaign_type='retention',
+                    status='active'
+                ).first()
+                
+                if not existing_campaign:
+                    # Aquí se podría crear una campaña automática de retención
+                    pass
+        
+        db.session.commit()
+        logger.info(f"Actualizada segmentación de {len(customers)} clientes")
+    
+    @staticmethod
+    def process_scheduled_campaigns():
+        """Procesa campañas de marketing programadas"""
+        now = datetime.utcnow()
+        
+        scheduled_campaigns = MarketingCampaign.query.filter(
+            MarketingCampaign.status == 'scheduled',
+            MarketingCampaign.scheduled_at <= now
+        ).all()
+        
+        for campaign in scheduled_campaigns:
+            try:
+                # Obtener destinatarios
+                if campaign.target_group_id:
+                    recipients = campaign.target_group.customers
+                else:
+                    # Aplicar criterios personalizados
+                    recipients = Customer.query.filter_by(
+                        user_id=campaign.user_id,
+                        accepts_marketing=True
+                    ).all()
+                
+                campaign.total_recipients = len(recipients)
+                campaign.status = 'active'
+                campaign.sent_at = now
+                
+                # Crear registros de destinatarios
+                for customer in recipients:
+                    recipient = CampaignRecipient(
+                        campaign_id=campaign.id,
+                        customer_id=customer.id
+                    )
+                    db.session.add(recipient)
+                    
+                    # Enviar campaña
+                    if campaign.campaign_type == 'email' and customer.email:
+                        AutomationTasks._send_campaign_email(campaign, customer)
+                        recipient.status = 'sent'
+                        recipient.sent_at = now
+                        campaign.total_sent += 1
+                
+                logger.info(f"Campaña {campaign.name} enviada a {campaign.total_sent} destinatarios")
+                
+            except Exception as e:
+                logger.error(f"Error procesando campaña {campaign.id}: {str(e)}")
+                campaign.status = 'failed'
         
         db.session.commit()
     
-    def cleanup_old_data(self):
-        """Limpia datos antiguos para optimizar rendimiento"""
-        # Eliminar movimientos de stock muy antiguos (> 2 años)
-        cutoff_date = datetime.utcnow() - timedelta(days=730)
+    @staticmethod
+    def clean_old_data():
+        """Limpia datos antiguos según políticas de retención"""
+        # Eliminar alertas resueltas de más de 90 días
+        old_alerts = StockAlert.query.filter(
+            StockAlert.is_resolved == True,
+            StockAlert.resolved_at < datetime.utcnow() - timedelta(days=90)
+        ).all()
         
-        old_movements = StockMovement.query.filter(
-            StockMovement.created_at < cutoff_date
+        for alert in old_alerts:
+            db.session.delete(alert)
+        
+        # Eliminar movimientos de inventario de más de 1 año
+        old_movements = InventoryMovement.query.filter(
+            InventoryMovement.created_at < datetime.utcnow() - timedelta(days=365)
         ).limit(1000).all()  # Procesar en lotes
         
         for movement in old_movements:
             db.session.delete(movement)
         
         db.session.commit()
+        logger.info(f"Limpieza completada: {len(old_alerts)} alertas y {len(old_movements)} movimientos eliminados")
     
-    def generate_daily_summary(self, business):
-        """Genera resumen diario para un negocio"""
-        today = datetime.utcnow().date()
+    @staticmethod
+    def backup_database():
+        """Crea backup de la base de datos"""
+        # Esta función debería llamar al script backup_db.py
+        import subprocess
         
-        # Pedidos del día
-        today_orders = Order.query.filter(
-            Order.user_id == business.id,
-            func.date(Order.created_at) == today
-        ).all()
-        
-        # Calcular totales
-        total_revenue = sum(order.total for order in today_orders if order.status != 'cancelled')
-        
-        # Productos más vendidos hoy
-        from sqlalchemy import func
-        top_products = db.session.query(
-            Product.name,
-            func.sum(OrderItem.quantity).label('total_sold')
-        ).join(OrderItem).join(Order).filter(
-            Order.user_id == business.id,
-            func.date(Order.created_at) == today,
-            Order.status != 'cancelled'
-        ).group_by(Product.id).order_by(
-            func.sum(OrderItem.quantity).desc()
-        ).limit(5).all()
-        
-        return {
-            'date': today,
-            'total_orders': len(today_orders),
-            'total_revenue': total_revenue,
-            'pending_orders': len([o for o in today_orders if o.status == 'pending']),
-            'top_products': top_products,
-            'low_stock_alerts': StockAlert.query.filter_by(
-                user_id=business.id,
-                status='active'
-            ).count()
-        }
+        try:
+            result = subprocess.run(['python', 'scripts/backup_db.py'], capture_output=True, text=True)
+            if result.returncode == 0:
+                logger.info("Backup de base de datos completado")
+            else:
+                logger.error(f"Error en backup: {result.stderr}")
+        except Exception as e:
+            logger.error(f"Error ejecutando backup: {str(e)}")
     
-    def send_summary_email(self, business, summary):
-        """Envía email con resumen diario"""
-        try:
-            msg = Message(
-                subject=f"Resumen diario - {summary['date'].strftime('%d/%m/%Y')}",
-                sender=self.app.config['MAIL_DEFAULT_SENDER'],
-                recipients=[business.email]
-            )
-            
-            # Renderizar template
-            msg.html = render_template('emails/daily_summary.html',
-                business=business,
-                summary=summary
-            )
-            
-            self.mail.send(msg)
-            
-        except Exception as e:
-            logger.error(f"Error enviando email a {business.email}: {e}")
-    
-    def send_payment_reminder(self, invoice):
-        """Envía recordatorio de pago"""
-        try:
-            if not invoice.client_email:
-                return
-            
-            msg = Message(
-                subject=f"Recordatorio de pago - Factura {invoice.invoice_number}",
-                sender=self.app.config['MAIL_DEFAULT_SENDER'],
-                recipients=[invoice.client_email]
-            )
-            
-            msg.html = render_template('emails/payment_reminder.html',
-                invoice=invoice,
-                business=invoice.business
-            )
-            
-            self.mail.send(msg)
-            
-            # Registrar interacción
-            if invoice.order and invoice.order.customer_id:
-                interaction = CustomerInteraction(
-                    customer_id=invoice.order.customer_id,
-                    user_id=invoice.user_id,
-                    interaction_type='email',
-                    channel='email',
-                    subject='Recordatorio de pago enviado',
-                    description=f'Recordatorio automático para factura {invoice.invoice_number}',
-                    status='completed'
-                )
-                db.session.add(interaction)
-            
-        except Exception as e:
-            logger.error(f"Error enviando recordatorio de pago: {e}")
-    
-    def cleanup_old_backups(self, backup_dir, keep_last=30):
-        """Elimina backups antiguos"""
-        import glob
+    @staticmethod
+    def _send_email(to, subject, body=None, template=None, context=None):
+        """Función auxiliar para enviar emails"""
+        # Configuración SMTP desde variables de entorno
+        smtp_server = current_app.config.get('MAIL_SERVER', 'localhost')
+        smtp_port = current_app.config.get('MAIL_PORT', 587)
+        smtp_username = current_app.config.get('MAIL_USERNAME')
+        smtp_password = current_app.config.get('MAIL_PASSWORD')
+        from_email = current_app.config.get('MAIL_DEFAULT_SENDER', 'noreply@pedidossaas.com')
         
-        backups = sorted(glob.glob(os.path.join(backup_dir, 'backup_*.sql.gz')))
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = from_email
+        msg['To'] = to
         
-        if len(backups) > keep_last:
-            for backup in backups[:-keep_last]:
-                os.remove(backup)
-                logger.info(f"Backup eliminado: {backup}")
-
-
-# Decorador para tareas asíncronas
-def async_task(f):
-    """Ejecuta una tarea en background"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        thread = threading.Thread(target=f, args=args, kwargs=kwargs)
-        thread.daemon = True
-        thread.start()
-        return thread
-    return decorated_function
-
-
-# Tareas específicas que pueden ser llamadas manualmente
-
-@async_task
-def send_bulk_email(user_id, customer_group_id, subject, content):
-    """Envía emails masivos a un grupo de clientes"""
-    with current_app.app_context():
+        # Contenido del email
+        if template and context:
+            # Renderizar template HTML
+            html_body = render_template(template, **context)
+            msg.attach(MIMEText(html_body, 'html'))
+        elif body:
+            msg.attach(MIMEText(body, 'plain'))
+        
+        # Enviar email
         try:
-            from app.models.customer import CustomerGroup
-            
-            group = CustomerGroup.query.get(customer_group_id)
-            if not group or group.user_id != user_id:
-                return
-            
-            mail = Mail(current_app)
-            sent_count = 0
-            
-            for member in group.members:
-                if member.customer.email and member.customer.marketing_consent:
-                    try:
-                        msg = Message(
-                            subject=subject,
-                            sender=current_app.config['MAIL_DEFAULT_SENDER'],
-                            recipients=[member.customer.email]
-                        )
-                        
-                        # Personalizar contenido
-                        personalized_content = content.replace('{nombre}', member.customer.name)
-                        msg.html = personalized_content
-                        
-                        mail.send(msg)
-                        sent_count += 1
-                        
-                        # Pequeña pausa para no saturar
-                        time.sleep(0.5)
-                        
-                    except Exception as e:
-                        logger.error(f"Error enviando a {member.customer.email}: {e}")
-            
-            logger.info(f"Enviados {sent_count} emails a grupo {group.name}")
-            
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                if smtp_username and smtp_password:
+                    server.starttls()
+                    server.login(smtp_username, smtp_password)
+                server.send_message(msg)
         except Exception as e:
-            logger.error(f"Error en envío masivo: {e}")
+            logger.error(f"Error enviando email: {str(e)}")
+            raise
+    
+    @staticmethod
+    def _send_invoice_email(invoice):
+        """Envía factura por email"""
+        user = User.query.get(invoice.user_id)
+        
+        AutomationTasks._send_email(
+            to=invoice.customer_email,
+            subject=f"Factura {invoice.invoice_number} - {user.business_name}",
+            template='emails/invoice.html',
+            context={
+                'invoice': invoice,
+                'business': user,
+                'items': invoice.items.all(),
+                'payment_url': f"{current_app.config['BASE_URL']}/pay/{invoice.id}"
+            }
+        )
+    
+    @staticmethod
+    def _send_campaign_email(campaign, customer):
+        """Envía email de campaña"""
+        user = User.query.get(campaign.user_id)
+        
+        # Personalizar contenido
+        content = campaign.content
+        if content:
+            content = content.replace('{{customer_name}}', customer.name)
+            content = content.replace('{{business_name}}', user.business_name)
+        
+        AutomationTasks._send_email(
+            to=customer.email,
+            subject=campaign.subject,
+            body=content
+        )
 
+# Scheduler functions para usar con APScheduler o Celery
+def schedule_daily_tasks():
+    """Programa tareas diarias"""
+    AutomationTasks.run_daily_tasks()
 
-@async_task
-def generate_inventory_valuations():
-    """Genera valoraciones de inventario para todos los negocios"""
-    with current_app.app_context():
-        try:
-            from app.models.inventory import InventoryValuation
-            
-            businesses = User.query.filter_by(is_active=True).all()
-            
-            for business in businesses:
-                # Calcular valoración actual
-                valuation_data = InventoryValuation.calculate_current_valuation(business.id)
-                
-                # Crear registro
-                valuation = InventoryValuation(
-                    user_id=business.id,
-                    valuation_date=datetime.utcnow().date(),
-                    **valuation_data
-                )
-                
-                db.session.add(valuation)
-            
-            db.session.commit()
-            logger.info(f"Generadas {len(businesses)} valoraciones de inventario")
-            
-        except Exception as e:
-            logger.error(f"Error generando valoraciones: {e}")
-            db.session.rollback()
+def schedule_hourly_tasks():
+    """Programa tareas horarias"""
+    AutomationTasks.process_scheduled_campaigns()
 
-
-# Instancia global del sistema
-automation_system = AutomationSystem()
+def schedule_weekly_tasks():
+    """Programa tareas semanales"""
+    AutomationTasks.backup_database()
