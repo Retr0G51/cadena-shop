@@ -1,414 +1,305 @@
 """
-Sistema avanzado de gestión de inventario con seguimiento y alertas
+Modelo de Inventario para PedidosSaaS
+Control avanzado de stock, movimientos, alertas y trazabilidad
 """
-
 from datetime import datetime
+from decimal import Decimal
 from app.extensions import db
-from sqlalchemy import event
-from enum import Enum
+from sqlalchemy.orm import validates
 
-
-class StockMovementType(Enum):
-    """Tipos de movimientos de inventario"""
-    PURCHASE = 'purchase'  # Compra/entrada
-    SALE = 'sale'  # Venta
-    ADJUSTMENT = 'adjustment'  # Ajuste manual
-    RETURN = 'return'  # Devolución
-    DAMAGE = 'damage'  # Daño/pérdida
-    TRANSFER = 'transfer'  # Transferencia entre almacenes
-    PRODUCTION = 'production'  # Producción (para productos elaborados)
-
-
-class StockMovement(db.Model):
-    """Registro de todos los movimientos de inventario"""
-    __tablename__ = 'stock_movements'
+class Warehouse(db.Model):
+    """Almacenes o ubicaciones de inventario"""
+    __tablename__ = 'warehouses'
     
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    code = db.Column(db.String(20), unique=True)
+    address = db.Column(db.String(200))
+    is_active = db.Column(db.Boolean, default=True)
+    is_default = db.Column(db.Boolean, default=False)
     
-    # Tipo y cantidad
-    movement_type = db.Column(db.Enum(StockMovementType), nullable=False)
-    quantity = db.Column(db.Integer, nullable=False)  # Positivo = entrada, Negativo = salida
-    
-    # Stock antes y después
-    stock_before = db.Column(db.Integer, nullable=False)
-    stock_after = db.Column(db.Integer, nullable=False)
-    
-    # Costo (para calcular valor del inventario)
-    unit_cost = db.Column(db.Numeric(10, 2))
-    total_cost = db.Column(db.Numeric(10, 2))
-    
-    # Referencias
-    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=True)
-    order_item_id = db.Column(db.Integer, db.ForeignKey('order_items.id'), nullable=True)
-    
-    # Información adicional
-    reference = db.Column(db.String(100))  # Número de factura, orden de compra, etc.
-    notes = db.Column(db.Text)
-    
-    # Usuario que realizó el movimiento
-    performed_by = db.Column(db.String(100))  # Nombre del usuario
-    
-    # Timestamp
+    # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relaciones
-    product = db.relationship('Product', backref='stock_movements')
-    business = db.relationship('User', backref='stock_movements')
-    order = db.relationship('Order', backref='stock_movements')
-    order_item = db.relationship('OrderItem', backref='stock_movements')
+    stock_items = db.relationship('StockItem', backref='warehouse', lazy='dynamic')
+    movements = db.relationship('InventoryMovement', backref='warehouse', lazy='dynamic')
     
-    @staticmethod
-    def create_movement(product, movement_type, quantity, reference=None, notes=None, 
-                       order=None, order_item=None, unit_cost=None):
-        """Crea un movimiento de inventario y actualiza el stock del producto"""
-        # Validar cantidad según tipo de movimiento
-        if movement_type in [StockMovementType.SALE, StockMovementType.DAMAGE]:
-            if quantity > 0:
-                quantity = -quantity  # Asegurar que sea negativo para salidas
+    def __repr__(self):
+        return f'<Warehouse {self.name}>'
+
+
+class StockItem(db.Model):
+    """Stock por producto y almacén"""
+    __tablename__ = 'stock_items'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouses.id'), nullable=False)
+    
+    # Cantidades
+    quantity = db.Column(db.Numeric(10, 2), default=0)
+    reserved_quantity = db.Column(db.Numeric(10, 2), default=0)  # Reservado para pedidos
+    
+    # Control de stock
+    min_stock = db.Column(db.Numeric(10, 2), default=0)
+    max_stock = db.Column(db.Numeric(10, 2))
+    reorder_point = db.Column(db.Numeric(10, 2))  # Punto de reorden
+    
+    # Costos
+    average_cost = db.Column(db.Numeric(10, 2), default=0)
+    last_cost = db.Column(db.Numeric(10, 2), default=0)
+    
+    # Timestamps
+    last_movement_date = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Índice único
+    __table_args__ = (
+        db.UniqueConstraint('product_id', 'warehouse_id', name='_product_warehouse_uc'),
+    )
+    
+    @property
+    def available_quantity(self):
+        """Cantidad disponible (no reservada)"""
+        return self.quantity - self.reserved_quantity
+    
+    @property
+    def needs_reorder(self):
+        """Verifica si necesita reorden"""
+        if self.reorder_point:
+            return self.available_quantity <= self.reorder_point
+        return self.available_quantity <= self.min_stock
+    
+    def reserve(self, quantity):
+        """Reserva cantidad para un pedido"""
+        if quantity > self.available_quantity:
+            raise ValueError("Cantidad insuficiente para reservar")
+        self.reserved_quantity += quantity
+    
+    def release_reservation(self, quantity):
+        """Libera cantidad reservada"""
+        self.reserved_quantity = max(0, self.reserved_quantity - quantity)
+    
+    def __repr__(self):
+        return f'<StockItem Product:{self.product_id} Warehouse:{self.warehouse_id} Qty:{self.quantity}>'
+
+
+class InventoryMovement(db.Model):
+    """Movimientos de inventario"""
+    __tablename__ = 'inventory_movements'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    movement_type = db.Column(db.String(20), nullable=False)  # in, out, transfer, adjustment
+    reference_type = db.Column(db.String(20))  # order, purchase, manual, return
+    reference_id = db.Column(db.Integer)  # ID del pedido, compra, etc.
+    
+    # Producto y cantidad
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    quantity = db.Column(db.Numeric(10, 2), nullable=False)
+    unit_cost = db.Column(db.Numeric(10, 2))
+    
+    # Ubicaciones
+    warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouses.id'), nullable=False)
+    destination_warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouses.id'))  # Para transferencias
+    
+    # Stock antes y después
+    stock_before = db.Column(db.Numeric(10, 2))
+    stock_after = db.Column(db.Numeric(10, 2))
+    
+    # Información adicional
+    reason = db.Column(db.String(200))
+    notes = db.Column(db.Text)
+    batch_number = db.Column(db.String(50))  # Número de lote
+    expiry_date = db.Column(db.Date)  # Fecha de vencimiento
+    
+    # Usuario y timestamps
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relaciones
+    product = db.relationship('Product', backref='movements')
+    
+    @validates('quantity')
+    def validate_quantity(self, key, quantity):
+        """Valida que la cantidad sea positiva"""
+        if quantity <= 0:
+            raise ValueError("La cantidad debe ser positiva")
+        return quantity
+    
+    def apply_movement(self):
+        """Aplica el movimiento al stock"""
+        stock_item = StockItem.query.filter_by(
+            product_id=self.product_id,
+            warehouse_id=self.warehouse_id
+        ).first()
         
-        # Crear movimiento
-        movement = StockMovement(
-            product_id=product.id,
-            user_id=product.user_id,
-            movement_type=movement_type,
-            quantity=quantity,
-            stock_before=product.stock,
-            stock_after=product.stock + quantity,
-            reference=reference,
-            notes=notes,
-            unit_cost=unit_cost or product.cost_price or 0,
-            total_cost=(unit_cost or product.cost_price or 0) * abs(quantity),
-            order_id=order.id if order else None,
-            order_item_id=order_item.id if order_item else None,
-            performed_by=current_user.business_name if hasattr(current_user, 'business_name') else 'Sistema'
-        )
+        if not stock_item:
+            stock_item = StockItem(
+                product_id=self.product_id,
+                warehouse_id=self.warehouse_id
+            )
+            db.session.add(stock_item)
         
-        # Actualizar stock del producto
-        product.stock += quantity
+        # Guardar stock anterior
+        self.stock_before = stock_item.quantity
         
-        # Verificar alertas de stock bajo
-        if product.stock <= product.min_stock:
-            StockAlert.create_or_update_alert(product)
+        # Aplicar movimiento
+        if self.movement_type == 'in':
+            stock_item.quantity += self.quantity
+            # Actualizar costo promedio
+            if self.unit_cost:
+                total_value = (stock_item.quantity * stock_item.average_cost) + (self.quantity * self.unit_cost)
+                stock_item.average_cost = total_value / (stock_item.quantity + self.quantity)
+                stock_item.last_cost = self.unit_cost
         
-        db.session.add(movement)
-        db.session.add(product)
+        elif self.movement_type == 'out':
+            if stock_item.available_quantity < self.quantity:
+                raise ValueError("Stock insuficiente")
+            stock_item.quantity -= self.quantity
         
-        return movement
+        elif self.movement_type == 'adjustment':
+            # Ajuste directo
+            stock_item.quantity = self.quantity
+        
+        elif self.movement_type == 'transfer':
+            # Transferencia entre almacenes
+            if stock_item.available_quantity < self.quantity:
+                raise ValueError("Stock insuficiente para transferir")
+            
+            stock_item.quantity -= self.quantity
+            
+            # Crear stock en destino
+            dest_stock = StockItem.query.filter_by(
+                product_id=self.product_id,
+                warehouse_id=self.destination_warehouse_id
+            ).first()
+            
+            if not dest_stock:
+                dest_stock = StockItem(
+                    product_id=self.product_id,
+                    warehouse_id=self.destination_warehouse_id
+                )
+                db.session.add(dest_stock)
+            
+            dest_stock.quantity += self.quantity
+        
+        # Guardar stock posterior
+        self.stock_after = stock_item.quantity
+        stock_item.last_movement_date = datetime.utcnow()
+    
+    def __repr__(self):
+        return f'<InventoryMovement {self.movement_type} Product:{self.product_id} Qty:{self.quantity}>'
 
 
 class StockAlert(db.Model):
-    """Alertas de inventario bajo"""
+    """Alertas de stock"""
     __tablename__ = 'stock_alerts'
     
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouses.id'))
     
-    # Estado de la alerta
-    status = db.Column(db.String(20), default='active')  # active, resolved, ignored
-    severity = db.Column(db.String(20), default='warning')  # info, warning, critical
+    alert_type = db.Column(db.String(20), nullable=False)  # low_stock, overstock, expiring
+    threshold_value = db.Column(db.Numeric(10, 2))
+    current_value = db.Column(db.Numeric(10, 2))
     
-    # Información de stock
-    current_stock = db.Column(db.Integer)
-    min_stock = db.Column(db.Integer)
+    message = db.Column(db.Text)
+    is_read = db.Column(db.Boolean, default=False)
+    is_resolved = db.Column(db.Boolean, default=False)
     
-    # Fechas
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    read_at = db.Column(db.DateTime)
     resolved_at = db.Column(db.DateTime)
-    last_notified_at = db.Column(db.DateTime)
     
     # Relaciones
     product = db.relationship('Product', backref='stock_alerts')
-    business = db.relationship('User', backref='stock_alerts')
     
-    @staticmethod
-    def create_or_update_alert(product):
-        """Crea o actualiza una alerta de stock bajo"""
-        # Buscar alerta activa existente
-        alert = StockAlert.query.filter_by(
-            product_id=product.id,
-            status='active'
-        ).first()
-        
-        if alert:
-            # Actualizar alerta existente
-            alert.current_stock = product.stock
-            alert.min_stock = product.min_stock
-            
-            # Actualizar severidad
-            if product.stock == 0:
-                alert.severity = 'critical'
-            elif product.stock <= product.min_stock * 0.5:
-                alert.severity = 'warning'
-            else:
-                alert.severity = 'info'
-        else:
-            # Crear nueva alerta
-            alert = StockAlert(
-                product_id=product.id,
-                user_id=product.user_id,
-                current_stock=product.stock,
-                min_stock=product.min_stock,
-                severity='critical' if product.stock == 0 else 'warning'
-            )
-            db.session.add(alert)
-        
-        return alert
+    def mark_as_read(self):
+        """Marca la alerta como leída"""
+        self.is_read = True
+        self.read_at = datetime.utcnow()
+    
+    def mark_as_resolved(self):
+        """Marca la alerta como resuelta"""
+        self.is_resolved = True
+        self.resolved_at = datetime.utcnow()
+    
+    def __repr__(self):
+        return f'<StockAlert {self.alert_type} Product:{self.product_id}>'
 
 
-class InventoryValuation(db.Model):
-    """Valoración del inventario en un momento dado"""
-    __tablename__ = 'inventory_valuations'
+class PurchaseOrder(db.Model):
+    """Órdenes de compra a proveedores"""
+    __tablename__ = 'purchase_orders'
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    order_number = db.Column(db.String(20), unique=True, nullable=False)
     
-    # Fecha de la valoración
-    valuation_date = db.Column(db.Date, nullable=False)
+    # Proveedor
+    supplier_name = db.Column(db.String(100), nullable=False)
+    supplier_contact = db.Column(db.String(100))
+    supplier_phone = db.Column(db.String(20))
+    supplier_email = db.Column(db.String(120))
+    
+    # Estado
+    status = db.Column(db.String(20), default='draft')  # draft, sent, partial, completed, cancelled
+    
+    # Fechas
+    order_date = db.Column(db.DateTime, default=datetime.utcnow)
+    expected_date = db.Column(db.DateTime)
+    received_date = db.Column(db.DateTime)
     
     # Totales
-    total_items = db.Column(db.Integer, default=0)  # Cantidad total de items
-    total_products = db.Column(db.Integer, default=0)  # Cantidad de productos diferentes
-    total_value = db.Column(db.Numeric(12, 2), default=0)  # Valor total del inventario
+    subtotal = db.Column(db.Numeric(10, 2), default=0)
+    tax_amount = db.Column(db.Numeric(10, 2), default=0)
+    total = db.Column(db.Numeric(10, 2), default=0)
     
-    # Desglose por categorías (JSON)
-    category_breakdown = db.Column(db.JSON)
+    # Notas
+    notes = db.Column(db.Text)
     
-    # Timestamp
+    # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relaciones
-    business = db.relationship('User', backref='inventory_valuations')
+    items = db.relationship('PurchaseOrderItem', backref='purchase_order', lazy='dynamic', cascade='all, delete-orphan')
     
-    @staticmethod
-    def calculate_current_valuation(user_id):
-        """Calcula la valoración actual del inventario"""
-        from app.models import Product
-        
-        # Obtener todos los productos activos con stock
-        products = Product.query.filter(
-            Product.user_id == user_id,
-            Product.is_active == True,
-            Product.stock > 0
-        ).all()
-        
-        total_items = 0
-        total_value = 0
-        category_breakdown = {}
-        
-        for product in products:
-            total_items += product.stock
-            
-            # Usar precio de costo si está disponible, sino usar precio de venta * 0.7
-            cost = product.cost_price if hasattr(product, 'cost_price') and product.cost_price else product.price * 0.7
-            product_value = product.stock * cost
-            total_value += product_value
-            
-            # Agrupar por categoría
-            category = product.category or 'Sin categoría'
-            if category not in category_breakdown:
-                category_breakdown[category] = {
-                    'items': 0,
-                    'value': 0,
-                    'products': 0
-                }
-            
-            category_breakdown[category]['items'] += product.stock
-            category_breakdown[category]['value'] += float(product_value)
-            category_breakdown[category]['products'] += 1
-        
-        return {
-            'total_items': total_items,
-            'total_products': len(products),
-            'total_value': float(total_value),
-            'category_breakdown': category_breakdown
-        }
+    def generate_order_number(self):
+        """Genera número de orden de compra"""
+        timestamp = datetime.utcnow().strftime('%Y%m%d')
+        count = PurchaseOrder.query.filter_by(user_id=self.user_id).count() + 1
+        self.order_number = f"PO-{timestamp}-{count:04d}"
+    
+    def __repr__(self):
+        return f'<PurchaseOrder {self.order_number}>'
 
 
-# Agregar campos adicionales al modelo Product existente
-def extend_product_model():
-    """Extiende el modelo Product con campos de inventario avanzado"""
-    from app.models import Product
+class PurchaseOrderItem(db.Model):
+    """Items de órdenes de compra"""
+    __tablename__ = 'purchase_order_items'
     
-    # Agregar nuevos campos si no existen
-    if not hasattr(Product, 'min_stock'):
-        Product.min_stock = db.Column(db.Integer, default=10)
+    id = db.Column(db.Integer, primary_key=True)
+    purchase_order_id = db.Column(db.Integer, db.ForeignKey('purchase_orders.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     
-    if not hasattr(Product, 'max_stock'):
-        Product.max_stock = db.Column(db.Integer, default=1000)
+    quantity_ordered = db.Column(db.Numeric(10, 2), nullable=False)
+    quantity_received = db.Column(db.Numeric(10, 2), default=0)
+    unit_cost = db.Column(db.Numeric(10, 2), nullable=False)
+    subtotal = db.Column(db.Numeric(10, 2), nullable=False)
     
-    if not hasattr(Product, 'reorder_point'):
-        Product.reorder_point = db.Column(db.Integer, default=20)
-    
-    if not hasattr(Product, 'reorder_quantity'):
-        Product.reorder_quantity = db.Column(db.Integer, default=50)
-    
-    if not hasattr(Product, 'cost_price'):
-        Product.cost_price = db.Column(db.Numeric(10, 2))
-    
-    if not hasattr(Product, 'supplier'):
-        Product.supplier = db.Column(db.String(100))
-    
-    if not hasattr(Product, 'supplier_code'):
-        Product.supplier_code = db.Column(db.String(50))
-    
-    if not hasattr(Product, 'location'):
-        Product.location = db.Column(db.String(50))  # Ubicación en almacén
-    
-    if not hasattr(Product, 'expiry_date'):
-        Product.expiry_date = db.Column(db.Date)  # Para productos perecederos
-    
-    if not hasattr(Product, 'last_restock_date'):
-        Product.last_restock_date = db.Column(db.DateTime)
-    
-    if not hasattr(Product, 'track_inventory'):
-        Product.track_inventory = db.Column(db.Boolean, default=True)
-    
-    # Métodos adicionales
-    @property
-    def stock_status(Product):
-        """Retorna el estado del stock"""
-        if not Product.track_inventory:
-            return 'no_tracking'
-        if Product.stock == 0:
-            return 'out_of_stock'
-        elif Product.stock <= Product.min_stock:
-            return 'low_stock'
-        elif Product.stock >= Product.max_stock:
-            return 'overstock'
-        else:
-            return 'normal'
+    # Relaciones
+    product = db.relationship('Product', backref='purchase_items')
     
     @property
-    def stock_percentage(Product):
-        """Retorna el porcentaje de stock respecto al máximo"""
-        if Product.max_stock == 0:
-            return 0
-        return min(100, (Product.stock / Product.max_stock) * 100)
+    def is_complete(self):
+        """Verifica si el item está completo"""
+        return self.quantity_received >= self.quantity_ordered
     
-    @property
-    def days_until_stockout(Product):
-        """Estima días hasta agotarse basado en ventas recientes"""
-        # Calcular velocidad de venta de los últimos 30 días
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        
-        from app.models import OrderItem, Order
-        
-        sold_quantity = db.session.query(
-            func.sum(OrderItem.quantity)
-        ).join(Order).filter(
-            OrderItem.product_id == Product.id,
-            Order.created_at >= thirty_days_ago,
-            Order.status != 'cancelled'
-        ).scalar() or 0
-        
-        if sold_quantity == 0:
-            return float('inf')  # No hay ventas recientes
-        
-        daily_rate = sold_quantity / 30
-        if daily_rate == 0:
-            return float('inf')
-        
-        return int(Product.stock / daily_rate)
-    
-    # Agregar métodos al modelo
-    Product.stock_status = stock_status
-    Product.stock_percentage = stock_percentage
-    Product.days_until_stockout = days_until_stockout
-
-
-class InventoryReport:
-    """Clase para generar reportes de inventario"""
-    
-    @staticmethod
-    def movement_report(user_id, start_date, end_date, product_id=None):
-        """Genera reporte de movimientos de inventario"""
-        query = StockMovement.query.filter(
-            StockMovement.user_id == user_id,
-            StockMovement.created_at.between(start_date, end_date)
-        )
-        
-        if product_id:
-            query = query.filter(StockMovement.product_id == product_id)
-        
-        movements = query.order_by(StockMovement.created_at.desc()).all()
-        
-        # Calcular resumen
-        summary = {
-            'total_movements': len(movements),
-            'entries': sum(1 for m in movements if m.quantity > 0),
-            'exits': sum(1 for m in movements if m.quantity < 0),
-            'total_entered': sum(m.quantity for m in movements if m.quantity > 0),
-            'total_exited': abs(sum(m.quantity for m in movements if m.quantity < 0)),
-            'by_type': {}
-        }
-        
-        # Agrupar por tipo
-        for movement_type in StockMovementType:
-            type_movements = [m for m in movements if m.movement_type == movement_type]
-            if type_movements:
-                summary['by_type'][movement_type.value] = {
-                    'count': len(type_movements),
-                    'quantity': sum(m.quantity for m in type_movements)
-                }
-        
-        return {
-            'movements': movements,
-            'summary': summary
-        }
-    
-    @staticmethod
-    def stock_status_report(user_id):
-        """Genera reporte del estado actual del inventario"""
-        from app.models import Product
-        
-        products = Product.query.filter_by(
-            user_id=user_id,
-            is_active=True,
-            track_inventory=True
-        ).all()
-        
-        report = {
-            'total_products': len(products),
-            'out_of_stock': [],
-            'low_stock': [],
-            'normal_stock': [],
-            'overstock': [],
-            'total_value': 0,
-            'alerts': []
-        }
-        
-        for product in products:
-            status = product.stock_status
-            value = product.stock * (product.cost_price or product.price * 0.7)
-            report['total_value'] += value
-            
-            product_info = {
-                'id': product.id,
-                'name': product.name,
-                'stock': product.stock,
-                'min_stock': product.min_stock,
-                'value': float(value),
-                'days_until_stockout': product.days_until_stockout
-            }
-            
-            if status == 'out_of_stock':
-                report['out_of_stock'].append(product_info)
-                report['alerts'].append({
-                    'type': 'critical',
-                    'message': f'{product.name} está agotado'
-                })
-            elif status == 'low_stock':
-                report['low_stock'].append(product_info)
-                report['alerts'].append({
-                    'type': 'warning',
-                    'message': f'{product.name} tiene stock bajo ({product.stock} unidades)'
-                })
-            elif status == 'overstock':
-                report['overstock'].append(product_info)
-            else:
-                report['normal_stock'].append(product_info)
-        
-        return report
+    def __repr__(self):
+        return f'<PurchaseOrderItem Product:{self.product_id} Qty:{self.quantity_ordered}>'
