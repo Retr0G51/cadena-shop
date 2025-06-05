@@ -1,174 +1,129 @@
 """
-Modelos para el sistema de facturación electrónica
+Modelo de Facturación para PedidosSaaS
+Gestiona facturas, series, numeración y control fiscal
 """
-
-from datetime import datetime, timedelta
+from datetime import datetime
+from decimal import Decimal
 from app.extensions import db
-from sqlalchemy import event
+from app.models import Order
+
+class InvoiceSeries(db.Model):
+    """Serie de facturación para control fiscal"""
+    __tablename__ = 'invoice_series'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    prefix = db.Column(db.String(10), nullable=False)  # Ej: "FAC", "A", "B"
+    current_number = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relaciones
+    invoices = db.relationship('Invoice', backref='series', lazy='dynamic')
+    
+    def get_next_number(self):
+        """Obtiene el siguiente número de factura"""
+        self.current_number += 1
+        return f"{self.prefix}-{self.current_number:06d}"
+    
+    def __repr__(self):
+        return f'<InvoiceSeries {self.prefix}>'
 
 
 class Invoice(db.Model):
-    """Modelo de Factura Electrónica"""
+    """Modelo de Factura"""
     __tablename__ = 'invoices'
     
     id = db.Column(db.Integer, primary_key=True)
     invoice_number = db.Column(db.String(20), unique=True, nullable=False, index=True)
     
-    # Relación con pedido (opcional, puede ser factura manual)
-    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    # Información fiscal
+    series_id = db.Column(db.Integer, db.ForeignKey('invoice_series.id'))
+    fiscal_year = db.Column(db.Integer, default=lambda: datetime.utcnow().year)
     
-    # Información del cliente
-    client_name = db.Column(db.String(100), nullable=False)
-    client_email = db.Column(db.String(120))
-    client_phone = db.Column(db.String(20))
-    client_address = db.Column(db.Text)
-    client_tax_id = db.Column(db.String(50))  # RUC/NIT/CI
+    # Cliente
+    customer_name = db.Column(db.String(100), nullable=False)
+    customer_tax_id = db.Column(db.String(20))  # NIF/CIF/RUT
+    customer_address = db.Column(db.Text)
+    customer_email = db.Column(db.String(120))
+    customer_phone = db.Column(db.String(20))
     
-    # Fechas
-    issue_date = db.Column(db.DateTime, default=datetime.utcnow)
-    due_date = db.Column(db.DateTime)
-    
-    # Estado
-    status = db.Column(db.String(20), default='draft')  # draft, sent, paid, overdue, cancelled
-    payment_status = db.Column(db.String(20), default='pending')  # pending, partial, paid
-    
-    # Montos
+    # Totales
     subtotal = db.Column(db.Numeric(10, 2), default=0)
     tax_rate = db.Column(db.Numeric(5, 2), default=0)  # Porcentaje
     tax_amount = db.Column(db.Numeric(10, 2), default=0)
-    discount_rate = db.Column(db.Numeric(5, 2), default=0)  # Porcentaje
+    discount_rate = db.Column(db.Numeric(5, 2), default=0)
     discount_amount = db.Column(db.Numeric(10, 2), default=0)
     total = db.Column(db.Numeric(10, 2), default=0)
     
-    # Pagos
-    paid_amount = db.Column(db.Numeric(10, 2), default=0)
+    # Estado
+    status = db.Column(db.String(20), default='draft')  # draft, issued, paid, cancelled
+    payment_method = db.Column(db.String(20))
+    payment_date = db.Column(db.DateTime)
+    due_date = db.Column(db.DateTime)
     
     # Notas
     notes = db.Column(db.Text)
-    internal_notes = db.Column(db.Text)  # Notas privadas
-    
-    # Configuración
-    currency = db.Column(db.String(3), default='CUP')
-    payment_terms = db.Column(db.Integer, default=30)  # Días para pagar
+    internal_notes = db.Column(db.Text)  # No visible para el cliente
     
     # Timestamps
+    issued_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    sent_at = db.Column(db.DateTime)
-    paid_at = db.Column(db.DateTime)
+    
+    # Foreign keys
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'))  # Opcional, puede venir de un pedido
     
     # Relaciones
-    order = db.relationship('Order', backref='invoice', uselist=False)
-    business = db.relationship('User', backref='invoices')
     items = db.relationship('InvoiceItem', backref='invoice', lazy='dynamic', cascade='all, delete-orphan')
     payments = db.relationship('InvoicePayment', backref='invoice', lazy='dynamic', cascade='all, delete-orphan')
     
-    def __init__(self, **kwargs):
-        super(Invoice, self).__init__(**kwargs)
-        if not self.invoice_number:
-            self.invoice_number = self.generate_invoice_number()
-        if not self.due_date:
-            self.due_date = datetime.utcnow() + timedelta(days=self.payment_terms or 30)
-    
-    def generate_invoice_number(self):
-        """Genera número de factura único"""
-        from app.models import User
-        
-        # Obtener el último número de factura del usuario
-        last_invoice = Invoice.query.filter_by(
-            user_id=self.user_id
-        ).order_by(Invoice.id.desc()).first()
-        
-        if last_invoice:
-            # Extraer número y incrementar
-            last_num = int(last_invoice.invoice_number.split('-')[-1])
-            new_num = last_num + 1
-        else:
-            new_num = 1
-        
-        # Formato: INV-YYYY-00001
-        year = datetime.utcnow().year
-        return f"INV-{year}-{new_num:05d}"
-    
     def calculate_totals(self):
         """Calcula los totales de la factura"""
-        # Calcular subtotal desde items
-        self.subtotal = sum(item.total for item in self.items)
+        # Calcular subtotal
+        self.subtotal = sum(item.subtotal for item in self.items)
         
         # Calcular descuento
-        if self.discount_rate:
+        if self.discount_rate > 0:
             self.discount_amount = self.subtotal * (self.discount_rate / 100)
         
+        # Base imponible
+        taxable_base = self.subtotal - self.discount_amount
+        
         # Calcular impuestos
-        taxable_amount = self.subtotal - self.discount_amount
-        if self.tax_rate:
-            self.tax_amount = taxable_amount * (self.tax_rate / 100)
+        if self.tax_rate > 0:
+            self.tax_amount = taxable_base * (self.tax_rate / 100)
         
         # Total
-        self.total = taxable_amount + self.tax_amount
-        
-        # Actualizar estado de pago
-        self.update_payment_status()
+        self.total = taxable_base + self.tax_amount
     
-    def update_payment_status(self):
-        """Actualiza el estado de pago basado en los pagos recibidos"""
-        total_paid = sum(payment.amount for payment in self.payments if payment.status == 'completed')
-        self.paid_amount = total_paid
-        
-        if self.paid_amount >= self.total:
-            self.payment_status = 'paid'
-            self.status = 'paid'
-            if not self.paid_at:
-                self.paid_at = datetime.utcnow()
-        elif self.paid_amount > 0:
-            self.payment_status = 'partial'
-        else:
-            self.payment_status = 'pending'
-            # Verificar si está vencida
-            if self.due_date and datetime.utcnow() > self.due_date:
-                self.status = 'overdue'
+    def mark_as_paid(self, payment_date=None):
+        """Marca la factura como pagada"""
+        self.status = 'paid'
+        self.payment_date = payment_date or datetime.utcnow()
     
-    def get_status_badge_class(self):
-        """Retorna la clase CSS para el badge del estado"""
-        status_classes = {
-            'draft': 'bg-gray-100 text-gray-800',
-            'sent': 'bg-blue-100 text-blue-800',
-            'paid': 'bg-green-100 text-green-800',
-            'overdue': 'bg-red-100 text-red-800',
-            'cancelled': 'bg-gray-100 text-gray-800'
-        }
-        return status_classes.get(self.status, 'bg-gray-100 text-gray-800')
+    def get_paid_amount(self):
+        """Obtiene el monto pagado"""
+        return sum(payment.amount for payment in self.payments if payment.is_confirmed)
     
-    def get_payment_status_display(self):
-        """Retorna el texto del estado de pago"""
-        status_display = {
-            'pending': 'Pendiente',
-            'partial': 'Pago Parcial',
-            'paid': 'Pagado'
-        }
-        return status_display.get(self.payment_status, 'Desconocido')
-    
-    @property
-    def balance_due(self):
-        """Retorna el saldo pendiente"""
-        return max(0, self.total - self.paid_amount)
+    def get_pending_amount(self):
+        """Obtiene el monto pendiente"""
+        return self.total - self.get_paid_amount()
     
     @property
     def is_overdue(self):
         """Verifica si la factura está vencida"""
-        return self.due_date and datetime.utcnow() > self.due_date and self.payment_status != 'paid'
+        if self.status == 'paid' or not self.due_date:
+            return False
+        return datetime.utcnow() > self.due_date
     
-    @property
-    def days_overdue(self):
-        """Días de vencimiento"""
-        if self.is_overdue:
-            return (datetime.utcnow() - self.due_date).days
-        return 0
+    def __repr__(self):
+        return f'<Invoice {self.invoice_number}>'
 
 
 class InvoiceItem(db.Model):
-    """Items de la factura"""
+    """Items de una factura"""
     __tablename__ = 'invoice_items'
     
     id = db.Column(db.Integer, primary_key=True)
@@ -178,66 +133,120 @@ class InvoiceItem(db.Model):
     description = db.Column(db.String(200), nullable=False)
     quantity = db.Column(db.Numeric(10, 2), nullable=False, default=1)
     unit_price = db.Column(db.Numeric(10, 2), nullable=False)
-    
-    # Opcional: relación con producto
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)
-    
-    # Totales
-    subtotal = db.Column(db.Numeric(10, 2), nullable=False)
     discount_rate = db.Column(db.Numeric(5, 2), default=0)
-    discount_amount = db.Column(db.Numeric(10, 2), default=0)
-    total = db.Column(db.Numeric(10, 2), nullable=False)
+    subtotal = db.Column(db.Numeric(10, 2), nullable=False)
     
-    # Relaciones
-    product = db.relationship('Product', backref='invoice_items')
+    # Referencia opcional a producto
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'))
     
-    def calculate_totals(self):
-        """Calcula los totales del item"""
-        self.subtotal = self.quantity * self.unit_price
-        
-        if self.discount_rate:
-            self.discount_amount = self.subtotal * (self.discount_rate / 100)
-        
-        self.total = self.subtotal - self.discount_amount
+    def calculate_subtotal(self):
+        """Calcula el subtotal del item"""
+        base = self.quantity * self.unit_price
+        if self.discount_rate > 0:
+            discount = base * (self.discount_rate / 100)
+            self.subtotal = base - discount
+        else:
+            self.subtotal = base
 
 
 class InvoicePayment(db.Model):
-    """Pagos registrados para una factura"""
+    """Pagos parciales de facturas"""
     __tablename__ = 'invoice_payments'
     
     id = db.Column(db.Integer, primary_key=True)
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=False)
     
-    # Información del pago
     amount = db.Column(db.Numeric(10, 2), nullable=False)
+    payment_method = db.Column(db.String(20), nullable=False)
     payment_date = db.Column(db.DateTime, default=datetime.utcnow)
-    payment_method = db.Column(db.String(50))  # cash, transfer, card, other
-    reference = db.Column(db.String(100))  # Número de referencia/transacción
-    
-    # Estado
-    status = db.Column(db.String(20), default='completed')  # pending, completed, failed
-    
-    # Notas
+    reference = db.Column(db.String(100))  # Número de transferencia, cheque, etc.
     notes = db.Column(db.Text)
+    is_confirmed = db.Column(db.Boolean, default=True)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<InvoicePayment {self.amount} for Invoice {self.invoice_id}>'
+
+
+class RecurringInvoice(db.Model):
+    """Facturas recurrentes automáticas"""
+    __tablename__ = 'recurring_invoices'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Plantilla
+    template_name = db.Column(db.String(100), nullable=False)
+    customer_name = db.Column(db.String(100), nullable=False)
+    customer_tax_id = db.Column(db.String(20))
+    customer_address = db.Column(db.Text)
+    customer_email = db.Column(db.String(120))
+    
+    # Items recurrentes (stored as JSON)
+    items_json = db.Column(db.JSON)
+    
+    # Configuración de recurrencia
+    frequency = db.Column(db.String(20), nullable=False)  # daily, weekly, monthly, yearly
+    interval = db.Column(db.Integer, default=1)  # Cada X períodos
+    day_of_month = db.Column(db.Integer)  # Para facturas mensuales
+    
+    # Control
+    is_active = db.Column(db.Boolean, default=True)
+    next_issue_date = db.Column(db.DateTime, nullable=False)
+    last_issued_date = db.Column(db.DateTime)
+    
+    # Configuración fiscal
+    series_id = db.Column(db.Integer, db.ForeignKey('invoice_series.id'))
+    tax_rate = db.Column(db.Numeric(5, 2), default=0)
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-
-# Event listeners para actualizar totales automáticamente
-@event.listens_for(InvoiceItem, 'before_insert')
-@event.listens_for(InvoiceItem, 'before_update')
-def calculate_item_totals(mapper, connection, target):
-    """Calcula totales del item antes de guardar"""
-    target.calculate_totals()
-
-
-@event.listens_for(InvoicePayment, 'after_insert')
-@event.listens_for(InvoicePayment, 'after_update')
-@event.listens_for(InvoicePayment, 'after_delete')
-def update_invoice_payment_status(mapper, connection, target):
-    """Actualiza estado de pago de la factura cuando cambian los pagos"""
-    invoice = Invoice.query.get(target.invoice_id)
-    if invoice:
-        invoice.update_payment_status()
-        db.session.add(invoice)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def create_invoice(self):
+        """Crea una factura basada en esta plantilla"""
+        invoice = Invoice(
+            user_id=self.user_id,
+            series_id=self.series_id,
+            customer_name=self.customer_name,
+            customer_tax_id=self.customer_tax_id,
+            customer_address=self.customer_address,
+            customer_email=self.customer_email,
+            tax_rate=self.tax_rate,
+            status='draft'
+        )
+        
+        # Crear items desde JSON
+        if self.items_json:
+            for item_data in self.items_json:
+                item = InvoiceItem(
+                    description=item_data['description'],
+                    quantity=item_data['quantity'],
+                    unit_price=item_data['unit_price'],
+                    discount_rate=item_data.get('discount_rate', 0)
+                )
+                item.calculate_subtotal()
+                invoice.items.append(item)
+        
+        return invoice
+    
+    def calculate_next_date(self):
+        """Calcula la próxima fecha de emisión"""
+        from dateutil.relativedelta import relativedelta
+        
+        if self.frequency == 'daily':
+            delta = relativedelta(days=self.interval)
+        elif self.frequency == 'weekly':
+            delta = relativedelta(weeks=self.interval)
+        elif self.frequency == 'monthly':
+            delta = relativedelta(months=self.interval)
+        elif self.frequency == 'yearly':
+            delta = relativedelta(years=self.interval)
+        else:
+            delta = relativedelta(months=1)
+        
+        self.next_issue_date = self.next_issue_date + delta
+    
+    def __repr__(self):
+        return f'<RecurringInvoice {self.template_name}>'
