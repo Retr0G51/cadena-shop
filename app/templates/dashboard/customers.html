@@ -1,0 +1,581 @@
+{% extends "base.html" %}
+
+{% block title %}Clientes - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Gestión de Clientes</h1>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#customerModal">
+                        <i class="fas fa-user-plus"></i> Nuevo Cliente
+                    </button>
+                    <a href="{{ url_for('dashboard.customer_groups') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-users"></i> Grupos
+                    </a>
+                    <a href="{{ url_for('dashboard.marketing_campaigns') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-bullhorn"></i> Campañas
+                    </a>
+                </div>
+            </div>
+
+            <!-- Estadísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">Total Clientes</h5>
+                            <h2>{{ total_customers }}</h2>
+                            <p class="mb-0">
+                                <span class="text-success">+{{ new_customers }}</span> nuevos este mes
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">Clientes VIP</h5>
+                            <h2>{{ customers.filter_by(segment='vip').count() }}</h2>
+                            <p class="mb-0">Mayor valor de compra</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">En Riesgo</h5>
+                            <h2 class="text-warning">{{ customers.filter_by(tags__contains=['at_risk']).count() }}</h2>
+                            <p class="mb-0">Sin comprar +60 días</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">Marketing Activo</h5>
+                            <h2>{{ customers.filter_by(accepts_marketing=true).count() }}</h2>
+                            <p class="mb-0">Aceptan comunicaciones</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Búsqueda y filtros -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="get" class="form-inline">
+                        <div class="form-group mr-3">
+                            <input type="text" name="search" class="form-control" 
+                                   placeholder="Buscar por nombre, email o teléfono..."
+                                   value="{{ search }}" style="width: 300px;">
+                        </div>
+                        <div class="form-group mr-3">
+                            <label for="segment" class="mr-2">Segmento:</label>
+                            <select name="segment" id="segment" class="form-control form-control-sm">
+                                <option value="">Todos</option>
+                                <option value="vip" {% if segment == 'vip' %}selected{% endif %}>VIP</option>
+                                <option value="premium" {% if segment == 'premium' %}selected{% endif %}>Premium</option>
+                                <option value="regular" {% if segment == 'regular' %}selected{% endif %}>Regular</option>
+                                <option value="new" {% if segment == 'new' %}selected{% endif %}>Nuevo</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                        <a href="{{ url_for('dashboard.customers') }}" class="btn btn-secondary btn-sm ml-2">
+                            <i class="fas fa-times"></i> Limpiar
+                        </a>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tabla de clientes -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Contacto</th>
+                                    <th>Segmento</th>
+                                    <th class="text-right">Total Compras</th>
+                                    <th class="text-right">Pedidos</th>
+                                    <th>Última Compra</th>
+                                    <th>Marketing</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for customer in customers.items %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('dashboard.customer_detail', customer_id=customer.id) }}">
+                                            <strong>{{ customer.name }}</strong>
+                                        </a>
+                                        {% if customer.company_name %}
+                                        <br><small class="text-muted">{{ customer.company_name }}</small>
+                                        {% endif %}
+                                        {% if customer.tags %}
+                                        <br>
+                                        {% for tag in customer.tags %}
+                                        <span class="badge badge-secondary">{{ tag }}</span>
+                                        {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>
+                                            <i class="fas fa-phone"></i> {{ customer.phone }}<br>
+                                            {% if customer.email %}
+                                            <i class="fas fa-envelope"></i> {{ customer.email }}
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        {% if customer.segment == 'vip' %}
+                                            <span class="badge badge-warning">VIP</span>
+                                        {% elif customer.segment == 'premium' %}
+                                            <span class="badge badge-info">Premium</span>
+                                        {% elif customer.segment == 'regular' %}
+                                            <span class="badge badge-primary">Regular</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">Nuevo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right">
+                                        <strong>${{ "%.2f"|format(customer.total_spent) }}</strong>
+                                    </td>
+                                    <td class="text-right">{{ customer.total_orders }}</td>
+                                    <td>
+                                        {% if customer.last_order_date %}
+                                            {{ customer.last_order_date.strftime('%d/%m/%Y') }}
+                                            {% if customer.is_at_risk %}
+                                            <br><small class="text-danger">En riesgo</small>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if customer.accepts_marketing %}
+                                            <i class="fas fa-check text-success"></i>
+                                        {% else %}
+                                            <i class="fas fa-times text-danger"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{{ url_for('dashboard.customer_detail', customer_id=customer.id) }}" 
+                                               class="btn btn-outline-primary" title="Ver detalles">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <button onclick="editCustomer({{ customer.id }})" 
+                                                    class="btn btn-outline-secondary" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button onclick="addInteraction({{ customer.id }})" 
+                                                    class="btn btn-outline-secondary" title="Agregar interacción">
+                                                <i class="fas fa-comment"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">
+                                        <p class="mb-0">No se encontraron clientes</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginación -->
+                    {% if customers.has_prev or customers.has_next %}
+                    <nav>
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item {% if not customers.has_prev %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('dashboard.customers', page=customers.prev_num, search=search, segment=segment) }}">
+                                    &laquo;
+                                </a>
+                            </li>
+                            
+                            {% for page_num in customers.iter_pages() %}
+                                {% if page_num %}
+                                    <li class="page-item {% if page_num == customers.page %}active{% endif %}">
+                                        <a class="page-link" href="{{ url_for('dashboard.customers', page=page_num, search=search, segment=segment) }}">
+                                            {{ page_num }}
+                                        </a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <li class="page-item {% if not customers.has_next %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('dashboard.customers', page=customers.next_num, search=search, segment=segment) }}">
+                                    &raquo;
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Acciones masivas -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">Acciones Rápidas</h5>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="exportCustomers('csv')">
+                            <i class="fas fa-file-csv"></i> Exportar CSV
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="exportCustomers('xlsx')">
+                            <i class="fas fa-file-excel"></i> Exportar Excel
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="syncFromOrders()">
+                            <i class="fas fa-sync"></i> Sincronizar desde Pedidos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Cliente -->
+<div class="modal fade" id="customerModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="customerModalTitle">Nuevo Cliente</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="customerForm">
+                    <input type="hidden" id="customerId">
+                    
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="customerName">Nombre Completo *</label>
+                            <input type="text" class="form-control" id="customerName" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="customerPhone">Teléfono *</label>
+                            <input type="tel" class="form-control" id="customerPhone" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="customerEmail">Email</label>
+                            <input type="email" class="form-control" id="customerEmail">
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="customerType">Tipo de Cliente</label>
+                            <select class="form-control" id="customerType">
+                                <option value="individual">Individual</option>
+                                <option value="company">Empresa</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row" id="companyFields" style="display: none;">
+                        <div class="form-group col-md-6">
+                            <label for="companyName">Nombre de Empresa</label>
+                            <input type="text" class="form-control" id="companyName">
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="taxId">NIF/CIF</label>
+                            <input type="text" class="form-control" id="taxId">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="customerAddress">Dirección</label>
+                        <textarea class="form-control" id="customerAddress" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label for="customerCity">Ciudad</label>
+                            <input type="text" class="form-control" id="customerCity">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="customerState">Provincia/Estado</label>
+                            <input type="text" class="form-control" id="customerState">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="postalCode">Código Postal</label>
+                            <input type="text" class="form-control" id="postalCode">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="customerNotes">Notas</label>
+                        <textarea class="form-control" id="customerNotes" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="acceptsMarketing" checked>
+                        <label class="form-check-label" for="acceptsMarketing">
+                            Acepta recibir comunicaciones de marketing
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveCustomer()">
+                    Guardar Cliente
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Interacción -->
+<div class="modal fade" id="interactionModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nueva Interacción</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="interactionForm">
+                    <input type="hidden" id="interactionCustomerId">
+                    
+                    <div class="form-group">
+                        <label for="interactionType">Tipo</label>
+                        <select class="form-control" id="interactionType" required>
+                            <option value="call">Llamada</option>
+                            <option value="email">Email</option>
+                            <option value="visit">Visita</option>
+                            <option value="note">Nota</option>
+                            <option value="complaint">Queja</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="interactionChannel">Canal</label>
+                        <select class="form-control" id="interactionChannel" required>
+                            <option value="phone">Teléfono</option>
+                            <option value="email">Email</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="in_person">En persona</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="interactionSubject">Asunto</label>
+                        <input type="text" class="form-control" id="interactionSubject" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="interactionContent">Contenido</label>
+                        <textarea class="form-control" id="interactionContent" rows="3" required></textarea>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="requiresFollowup">
+                        <label class="form-check-label" for="requiresFollowup">
+                            Requiere seguimiento
+                        </label>
+                    </div>
+                    
+                    <div class="form-group" id="followupDateGroup" style="display: none;">
+                        <label for="followupDate">Fecha de seguimiento</label>
+                        <input type="date" class="form-control" id="followupDate">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveInteraction()">
+                    Guardar Interacción
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Mostrar/ocultar campos de empresa
+$('#customerType').change(function() {
+    if ($(this).val() === 'company') {
+        $('#companyFields').show();
+    } else {
+        $('#companyFields').hide();
+    }
+});
+
+// Mostrar/ocultar fecha de seguimiento
+$('#requiresFollowup').change(function() {
+    if ($(this).is(':checked')) {
+        $('#followupDateGroup').show();
+        $('#followupDate').prop('required', true);
+    } else {
+        $('#followupDateGroup').hide();
+        $('#followupDate').prop('required', false);
+    }
+});
+
+function editCustomer(customerId) {
+    // Cargar datos del cliente y mostrar modal
+    fetch(`/dashboard/api/customer/${customerId}`)
+        .then(response => response.json())
+        .then(customer => {
+            $('#customerId').val(customer.id);
+            $('#customerName').val(customer.name);
+            $('#customerPhone').val(customer.phone);
+            $('#customerEmail').val(customer.email);
+            $('#customerType').val(customer.customer_type);
+            $('#companyName').val(customer.company_name);
+            $('#taxId').val(customer.tax_id);
+            $('#customerAddress').val(customer.address);
+            $('#customerCity').val(customer.city);
+            $('#customerState').val(customer.state);
+            $('#postalCode').val(customer.postal_code);
+            $('#customerNotes').val(customer.notes);
+            $('#acceptsMarketing').prop('checked', customer.accepts_marketing);
+            
+            if (customer.customer_type === 'company') {
+                $('#companyFields').show();
+            }
+            
+            $('#customerModalTitle').text('Editar Cliente');
+            $('#customerModal').modal('show');
+        });
+}
+
+function saveCustomer() {
+    const customerId = $('#customerId').val();
+    const data = {
+        name: $('#customerName').val(),
+        phone: $('#customerPhone').val(),
+        email: $('#customerEmail').val(),
+        customer_type: $('#customerType').val(),
+        company_name: $('#companyName').val(),
+        tax_id: $('#taxId').val(),
+        address: $('#customerAddress').val(),
+        city: $('#customerCity').val(),
+        state: $('#customerState').val(),
+        postal_code: $('#postalCode').val(),
+        notes: $('#customerNotes').val(),
+        accepts_marketing: $('#acceptsMarketing').is(':checked')
+    };
+    
+    const url = customerId ? 
+        `/dashboard/api/customer/${customerId}` : 
+        '/dashboard/api/customer';
+    const method = customerId ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            $('#customerModal').modal('hide');
+            location.reload();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    });
+}
+
+function addInteraction(customerId) {
+    $('#interactionCustomerId').val(customerId);
+    $('#interactionModal').modal('show');
+}
+
+function saveInteraction() {
+    const data = {
+        type: $('#interactionType').val(),
+        channel: $('#interactionChannel').val(),
+        subject: $('#interactionSubject').val(),
+        content: $('#interactionContent').val(),
+        requires_followup: $('#requiresFollowup').is(':checked')
+    };
+    
+    if (data.requires_followup) {
+        data.followup_date = $('#followupDate').val();
+    }
+    
+    const customerId = $('#interactionCustomerId').val();
+    
+    fetch(`/dashboard/customers/${customerId}/interaction`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            $('#interactionModal').modal('hide');
+            alert('Interacción registrada exitosamente');
+        } else {
+            alert('Error: ' + result.message);
+        }
+    });
+}
+
+function exportCustomers(format) {
+    const params = new URLSearchParams({
+        format: format,
+        search: '{{ search }}',
+        segment: '{{ segment }}'
+    });
+    
+    window.location.href = `/dashboard/customers/export?${params.toString()}`;
+}
+
+function syncFromOrders() {
+    if (confirm('¿Sincronizar clientes desde los pedidos existentes?')) {
+        fetch('/dashboard/customers/sync', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(`${result.count} clientes sincronizados`);
+                location.reload();
+            } else {
+                alert('Error: ' + result.message);
+            }
+        });
+    }
+}
+
+// Limpiar modal al cerrarlo
+$('#customerModal').on('hidden.bs.modal', function () {
+    $('#customerForm')[0].reset();
+    $('#customerId').val('');
+    $('#customerModalTitle').text('Nuevo Cliente');
+    $('#companyFields').hide();
+});
+
+$('#interactionModal').on('hidden.bs.modal', function () {
+    $('#interactionForm')[0].reset();
+    $('#followupDateGroup').hide();
+});
+</script>
+{% endblock %}
