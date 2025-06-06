@@ -1,0 +1,441 @@
+{% extends "base.html" %}
+
+{% block title %}Inventario - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Gestión de Inventario</h1>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#movementModal">
+                        <i class="fas fa-exchange-alt"></i> Nuevo Movimiento
+                    </button>
+                    <a href="{{ url_for('dashboard.inventory_movements') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-history"></i> Historial
+                    </a>
+                    <a href="{{ url_for('dashboard.purchase_orders') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-shopping-cart"></i> Órdenes de Compra
+                    </a>
+                </div>
+            </div>
+
+            <!-- Alertas activas -->
+            {% if active_alerts > 0 %}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                Tienes <strong>{{ active_alerts }}</strong> alertas de stock activas.
+                <a href="{{ url_for('dashboard.stock_alerts') }}" class="alert-link">Ver alertas</a>
+                <button type="button" class="close" data-dismiss="alert">
+                    <span>&times;</span>
+                </button>
+            </div>
+            {% endif %}
+
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="get" class="form-inline">
+                        <div class="form-group mr-3">
+                            <label for="warehouse" class="mr-2">Almacén:</label>
+                            <select name="warehouse" id="warehouse" class="form-control form-control-sm">
+                                <option value="">Todos</option>
+                                {% for warehouse in warehouses %}
+                                <option value="{{ warehouse.id }}" {% if selected_warehouse == warehouse.id %}selected{% endif %}>
+                                    {{ warehouse.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-check mr-3">
+                            <input type="checkbox" class="form-check-input" id="low_stock" name="low_stock" 
+                                   value="true" {% if low_stock_only %}checked{% endif %}>
+                            <label class="form-check-label" for="low_stock">
+                                Solo stock bajo
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="fas fa-filter"></i> Filtrar
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Resumen por almacén -->
+            <div class="row mb-4">
+                {% for warehouse in warehouses %}
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ warehouse.name }}</h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">Productos</small>
+                                    <h4>{{ warehouse.stock_items.count() }}</h4>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Valor Total</small>
+                                    <h4>$0.00</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Tabla de inventario -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Almacén</th>
+                                    <th class="text-right">Stock Actual</th>
+                                    <th class="text-right">Stock Mínimo</th>
+                                    <th class="text-right">Punto Reorden</th>
+                                    <th class="text-right">Costo Promedio</th>
+                                    <th class="text-right">Valor Total</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in stock_items.items %}
+                                {% set stock = item[0] %}
+                                {% set product = item[1] %}
+                                <tr {% if stock.needs_reorder %}class="table-warning"{% endif %}>
+                                    <td>
+                                        <strong>{{ product.name }}</strong>
+                                        {% if product.sku %}
+                                        <br><small class="text-muted">SKU: {{ product.sku }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ stock.warehouse.name }}</td>
+                                    <td class="text-right">
+                                        <strong>{{ stock.quantity|int }}</strong>
+                                        {% if stock.reserved_quantity > 0 %}
+                                        <br><small class="text-muted">
+                                            {{ stock.reserved_quantity|int }} reservados
+                                        </small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right">{{ stock.min_stock|int }}</td>
+                                    <td class="text-right">{{ stock.reorder_point|int if stock.reorder_point else '-' }}</td>
+                                    <td class="text-right">${{ "%.2f"|format(stock.average_cost) }}</td>
+                                    <td class="text-right">
+                                        <strong>${{ "%.2f"|format(stock.quantity * stock.average_cost) }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if stock.quantity <= 0 %}
+                                            <span class="badge badge-danger">Sin Stock</span>
+                                        {% elif stock.needs_reorder %}
+                                            <span class="badge badge-warning">Reordenar</span>
+                                        {% else %}
+                                            <span class="badge badge-success">OK</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button onclick="quickAdjustment({{ product.id }}, {{ stock.warehouse_id }})" 
+                                                    class="btn btn-outline-primary" title="Ajuste rápido">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button onclick="viewHistory({{ product.id }})" 
+                                                    class="btn btn-outline-secondary" title="Ver historial">
+                                                <i class="fas fa-history"></i>
+                                            </button>
+                                            <button onclick="editStockSettings({{ stock.id }})" 
+                                                    class="btn btn-outline-secondary" title="Configurar">
+                                                <i class="fas fa-cog"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <p class="mb-0">No hay productos en inventario</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginación -->
+                    {% if stock_items.has_prev or stock_items.has_next %}
+                    <nav>
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item {% if not stock_items.has_prev %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('dashboard.inventory', page=stock_items.prev_num, warehouse=selected_warehouse, low_stock=low_stock_only) }}">
+                                    &laquo;
+                                </a>
+                            </li>
+                            
+                            {% for page_num in stock_items.iter_pages() %}
+                                {% if page_num %}
+                                    <li class="page-item {% if page_num == stock_items.page %}active{% endif %}">
+                                        <a class="page-link" href="{{ url_for('dashboard.inventory', page=page_num, warehouse=selected_warehouse, low_stock=low_stock_only) }}">
+                                            {{ page_num }}
+                                        </a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <li class="page-item {% if not stock_items.has_next %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('dashboard.inventory', page=stock_items.next_num, warehouse=selected_warehouse, low_stock=low_stock_only) }}">
+                                    &raquo;
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Movimiento -->
+<div class="modal fade" id="movementModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nuevo Movimiento de Inventario</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="movementForm">
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="movementType">Tipo de Movimiento</label>
+                            <select class="form-control" id="movementType" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="in">Entrada</option>
+                                <option value="out">Salida</option>
+                                <option value="adjustment">Ajuste</option>
+                                <option value="transfer">Transferencia</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="productId">Producto</label>
+                            <select class="form-control" id="productId" required>
+                                <option value="">Seleccionar...</option>
+                                {% for product in products %}
+                                <option value="{{ product.id }}">{{ product.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="warehouseId">Almacén Origen</label>
+                            <select class="form-control" id="warehouseId" required>
+                                {% for warehouse in warehouses %}
+                                <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6" id="destinationGroup" style="display: none;">
+                            <label for="destinationWarehouseId">Almacén Destino</label>
+                            <select class="form-control" id="destinationWarehouseId">
+                                {% for warehouse in warehouses %}
+                                <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="quantity">Cantidad</label>
+                            <input type="number" class="form-control" id="quantity" 
+                                   min="1" step="1" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="unitCost">Costo Unitario (opcional)</label>
+                            <input type="number" class="form-control" id="unitCost" 
+                                   min="0" step="0.01">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reason">Razón del Movimiento</label>
+                        <input type="text" class="form-control" id="reason" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notes">Notas (opcional)</label>
+                        <textarea class="form-control" id="notes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="submitMovement()">
+                    Registrar Movimiento
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Ajuste Rápido -->
+<div class="modal fade" id="quickAdjustModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ajuste Rápido de Stock</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="quickAdjustForm">
+                    <input type="hidden" id="adjustProductId">
+                    <input type="hidden" id="adjustWarehouseId">
+                    
+                    <div class="alert alert-info">
+                        <strong>Producto:</strong> <span id="adjustProductName"></span><br>
+                        <strong>Stock Actual:</strong> <span id="currentStock"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newStock">Nuevo Stock</label>
+                        <input type="number" class="form-control" id="newStock" 
+                               min="0" step="1" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="adjustReason">Razón del Ajuste</label>
+                        <select class="form-control" id="adjustReason" required>
+                            <option value="">Seleccionar...</option>
+                            <option value="Corrección de conteo">Corrección de conteo</option>
+                            <option value="Pérdida/Rotura">Pérdida/Rotura</option>
+                            <option value="Vencimiento">Vencimiento</option>
+                            <option value="Error de sistema">Error de sistema</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="submitQuickAdjust()">
+                    Aplicar Ajuste
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Mostrar/ocultar almacén destino según tipo de movimiento
+$('#movementType').change(function() {
+    if ($(this).val() === 'transfer') {
+        $('#destinationGroup').show();
+        $('#destinationWarehouseId').prop('required', true);
+    } else {
+        $('#destinationGroup').hide();
+        $('#destinationWarehouseId').prop('required', false);
+    }
+});
+
+function submitMovement() {
+    const data = {
+        movement_type: $('#movementType').val(),
+        product_id: $('#productId').val(),
+        warehouse_id: $('#warehouseId').val(),
+        quantity: parseFloat($('#quantity').val()),
+        unit_cost: parseFloat($('#unitCost').val()) || null,
+        reason: $('#reason').val(),
+        notes: $('#notes').val()
+    };
+    
+    if ($('#movementType').val() === 'transfer') {
+        data.destination_warehouse_id = $('#destinationWarehouseId').val();
+    }
+    
+    fetch('/dashboard/inventory/movement', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            $('#movementModal').modal('hide');
+            location.reload();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    });
+}
+
+function quickAdjustment(productId, warehouseId) {
+    // Aquí deberías obtener la información actual del producto
+    $('#adjustProductId').val(productId);
+    $('#adjustWarehouseId').val(warehouseId);
+    
+    // Obtener información actual
+    fetch(`/dashboard/api/stock/${productId}/${warehouseId}`)
+        .then(response => response.json())
+        .then(data => {
+            $('#adjustProductName').text(data.product_name);
+            $('#currentStock').text(data.current_stock);
+            $('#newStock').val(data.current_stock);
+            $('#quickAdjustModal').modal('show');
+        });
+}
+
+function submitQuickAdjust() {
+    const data = {
+        movement_type: 'adjustment',
+        product_id: $('#adjustProductId').val(),
+        warehouse_id: $('#adjustWarehouseId').val(),
+        quantity: parseFloat($('#newStock').val()),
+        reason: $('#adjustReason').val(),
+        notes: 'Ajuste rápido de inventario'
+    };
+    
+    fetch('/dashboard/inventory/movement', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            $('#quickAdjustModal').modal('hide');
+            location.reload();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    });
+}
+
+function viewHistory(productId) {
+    window.location.href = `/dashboard/inventory/movements?product=${productId}`;
+}
+
+function editStockSettings(stockId) {
+    // Implementar edición de configuración de stock
+    alert('Función en desarrollo');
+}
+</script>
+{% endblock %}
