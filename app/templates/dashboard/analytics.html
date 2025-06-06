@@ -1,449 +1,320 @@
 {% extends "base.html" %}
 
-{% block title %}Analytics - Dashboard{% endblock %}
-
-{% block extra_css %}
-<style>
-    .stat-card {
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    }
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-        transition: right 0.5s;
-    }
-    .stat-card:hover::before {
-        right: 100%;
-    }
-    .chart-container {
-        position: relative;
-        height: 300px;
-        width: 100%;
-    }
-    @media (max-width: 768px) {
-        .chart-container {
-            height: 250px;
-        }
-    }
-</style>
-{% endblock %}
+{% block title %}Analytics - {{ super() }}{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Header con selector de período -->
-    <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-800">Analytics Dashboard</h1>
-            <p class="text-gray-600 mt-2">Análisis completo de tu negocio</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-            <select id="periodSelector" class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
-                <option value="7">Últimos 7 días</option>
-                <option value="30" selected>Últimos 30 días</option>
-                <option value="90">Últimos 3 meses</option>
-                <option value="365">Último año</option>
-            </select>
-            <button onclick="exportReport()" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
-                <i class="fas fa-download mr-2"></i>Exportar
-            </button>
-        </div>
-    </div>
-
-    <!-- KPIs principales -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <!-- Ventas Totales -->
-        <div class="stat-card bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div class="bg-green-100 rounded-full p-3">
-                    <i class="fas fa-dollar-sign text-green-600 text-xl"></i>
-                </div>
-                <span class="text-sm text-green-600 font-medium">
-                    <i class="fas fa-arrow-up mr-1"></i>{{ revenue_change }}%
-                </span>
-            </div>
-            <h3 class="text-sm font-medium text-gray-600">Ingresos Totales</h3>
-            <p class="text-2xl font-bold text-gray-800">${{ "%.2f"|format(total_revenue) }}</p>
-            <p class="text-xs text-gray-500 mt-1">vs. período anterior</p>
-        </div>
-
-        <!-- Pedidos -->
-        <div class="stat-card bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div class="bg-blue-100 rounded-full p-3">
-                    <i class="fas fa-shopping-cart text-blue-600 text-xl"></i>
-                </div>
-                <span class="text-sm text-blue-600 font-medium">
-                    <i class="fas fa-arrow-up mr-1"></i>{{ orders_change }}%
-                </span>
-            </div>
-            <h3 class="text-sm font-medium text-gray-600">Total Pedidos</h3>
-            <p class="text-2xl font-bold text-gray-800">{{ total_orders }}</p>
-            <p class="text-xs text-gray-500 mt-1">{{ new_orders }} nuevos hoy</p>
-        </div>
-
-        <!-- Ticket Promedio -->
-        <div class="stat-card bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div class="bg-purple-100 rounded-full p-3">
-                    <i class="fas fa-receipt text-purple-600 text-xl"></i>
-                </div>
-                <span class="text-sm {{ 'text-green-600' if avg_ticket_change > 0 else 'text-red-600' }} font-medium">
-                    <i class="fas fa-arrow-{{ 'up' if avg_ticket_change > 0 else 'down' }} mr-1"></i>{{ avg_ticket_change }}%
-                </span>
-            </div>
-            <h3 class="text-sm font-medium text-gray-600">Ticket Promedio</h3>
-            <p class="text-2xl font-bold text-gray-800">${{ "%.2f"|format(avg_ticket) }}</p>
-            <p class="text-xs text-gray-500 mt-1">por pedido</p>
-        </div>
-
-        <!-- Tasa de Conversión -->
-        <div class="stat-card bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div class="bg-yellow-100 rounded-full p-3">
-                    <i class="fas fa-percentage text-yellow-600 text-xl"></i>
-                </div>
-                <span class="text-sm text-yellow-600 font-medium">
-                    {{ conversion_rate }}%
-                </span>
-            </div>
-            <h3 class="text-sm font-medium text-gray-600">Tasa Conversión</h3>
-            <p class="text-2xl font-bold text-gray-800">{{ completed_orders }}/{{ total_visits }}</p>
-            <p class="text-xs text-gray-500 mt-1">pedidos/visitas</p>
-        </div>
-    </div>
-
-    <!-- Gráficos principales -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Gráfico de Ventas -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold">Tendencia de Ventas</h2>
-                <div class="flex gap-2">
-                    <button onclick="updateSalesChart('revenue')" class="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-md">Ingresos</button>
-                    <button onclick="updateSalesChart('orders')" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md">Pedidos</button>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Analytics del Negocio</h1>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeDateRange('today')">Hoy</button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeDateRange('week')">7 días</button>
+                    <button type="button" class="btn btn-outline-secondary active" onclick="changeDateRange('month')">30 días</button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="changeDateRange('quarter')">90 días</button>
                 </div>
             </div>
-            <div class="chart-container">
-                <canvas id="salesChart"></canvas>
-            </div>
-        </div>
 
-        <!-- Productos más vendidos -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold mb-4">Top 10 Productos</h2>
-            <div class="chart-container">
-                <canvas id="topProductsChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Análisis adicionales -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <!-- Distribución por categorías -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold mb-4">Ventas por Categoría</h2>
-            <div class="chart-container">
-                <canvas id="categoriesChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Horarios pico -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold mb-4">Horarios de Mayor Actividad</h2>
-            <div class="chart-container">
-                <canvas id="peakHoursChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Estado de pedidos -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold mb-4">Estado de Pedidos</h2>
-            <div class="space-y-3">
-                {% for status, count in order_status_summary.items() %}
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <span class="w-3 h-3 rounded-full mr-2 
-                            {% if status == 'delivered' %}bg-green-500
-                            {% elif status == 'pending' %}bg-yellow-500
-                            {% elif status == 'cancelled' %}bg-red-500
-                            {% else %}bg-blue-500{% endif %}"></span>
-                        <span class="text-sm">{{ status|title }}</span>
+            <!-- Métricas principales -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">Ventas Totales</h5>
+                            <h2 class="text-success">${{ "{:,.2f}".format(metrics.total_sales) }}</h2>
+                            <p class="mb-0">
+                                <span class="{% if metrics.sales_change > 0 %}text-success{% else %}text-danger{% endif %}">
+                                    <i class="fas fa-arrow-{% if metrics.sales_change > 0 %}up{% else %}down{% endif %}"></i>
+                                    {{ "{:.1f}".format(metrics.sales_change|abs) }}%
+                                </span>
+                                vs período anterior
+                            </p>
+                        </div>
                     </div>
-                    <span class="font-medium">{{ count }}</span>
                 </div>
-                {% endfor %}
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">Pedidos</h5>
+                            <h2>{{ metrics.total_orders }}</h2>
+                            <p class="mb-0">
+                                <span class="text-info">{{ metrics.completed_orders }}</span> completados
+                                ({{ "{:.0f}".format(metrics.completion_rate) }}%)
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">Ticket Promedio</h5>
+                            <h2>${{ "{:.2f}".format(metrics.avg_order_value) }}</h2>
+                            <p class="mb-0">Por pedido completado</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-muted">Clientes Únicos</h5>
+                            <h2>{{ metrics.unique_customers }}</h2>
+                            <p class="mb-0">En el período</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Tabla de rendimiento de productos -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-lg font-semibold mb-4">Rendimiento de Productos</h2>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead>
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendidos</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ingresos</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tendencia</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for product in product_performance %}
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                {% if product.image %}
-                                <img src="{{ url_for('static', filename='uploads/' + product.image) }}" 
-                                     class="h-10 w-10 rounded-full object-cover mr-3">
-                                {% endif %}
-                                <div>
-                                    <div class="text-sm font-medium text-gray-900">{{ product.name }}</div>
-                                    <div class="text-sm text-gray-500">{{ product.category or 'Sin categoría' }}</div>
+            <!-- Gráficos -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Tendencia de Ventas</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="salesTrendChart" height="100"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Ventas por Hora</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="hourlyChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Productos más vendidos -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Top 10 Productos</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th class="text-center">Cantidad</th>
+                                            <th class="text-right">Ingresos</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for product in top_products %}
+                                        <tr>
+                                            <td>{{ product.name }}</td>
+                                            <td class="text-center">{{ product.quantity_sold }}</td>
+                                            <td class="text-right">${{ "{:.2f}".format(product.revenue) }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Análisis de Clientes</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center mb-3">
+                                <div class="col-4">
+                                    <h4>{{ customer_analytics.total_customers }}</h4>
+                                    <small class="text-muted">Total</small>
+                                </div>
+                                <div class="col-4">
+                                    <h4>{{ customer_analytics.new_customers }}</h4>
+                                    <small class="text-muted">Nuevos (30d)</small>
+                                </div>
+                                <div class="col-4">
+                                    <h4>{{ "{:.1f}".format(customer_analytics.retention_rate) }}%</h4>
+                                    <small class="text-muted">Retención</small>
                                 </div>
                             </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ product.units_sold }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${{ "%.2f"|format(product.revenue) }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {% if product.stock < 10 %}bg-red-100 text-red-800
-                                {% elif product.stock < 50 %}bg-yellow-100 text-yellow-800
-                                {% else %}bg-green-100 text-green-800{% endif %}">
-                                {{ product.stock }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <span class="sparkline" data-values="{{ product.trend_data }}"></span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            <canvas id="customerSegmentChart" height="150"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones rápidas -->
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Exportar Datos</h5>
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('dashboard.export_analytics', type='full', format='csv') }}" 
+                                   class="btn btn-outline-primary">
+                                    <i class="fas fa-file-csv"></i> Exportar CSV
+                                </a>
+                                <a href="{{ url_for('dashboard.export_analytics', type='full', format='json') }}" 
+                                   class="btn btn-outline-primary">
+                                    <i class="fas fa-file-code"></i> Exportar JSON
+                                </a>
+                                <button onclick="window.print()" class="btn btn-outline-primary">
+                                    <i class="fas fa-print"></i> Imprimir Reporte
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Loading overlay -->
-<div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 flex items-center justify-center">
-    <div class="bg-white p-6 rounded-lg shadow-xl">
-        <div class="flex items-center">
-            <div class="spinner mr-4"></div>
-            <span>Cargando datos...</span>
-        </div>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Variables globales para los gráficos
-let salesChart, topProductsChart, categoriesChart, peakHoursChart;
+// Datos para los gráficos
+const salesTrendData = {{ sales_trend | tojson }};
+const hourlyData = {{ hourly_sales | tojson }};
+const customerSegments = {{ customer_analytics.segments | tojson }};
 
-// Inicializar al cargar la página
-document.addEventListener('DOMContentLoaded', function() {
-    initializeCharts();
-    loadAnalyticsData();
-    
-    // Actualizar datos cuando cambie el período
-    document.getElementById('periodSelector').addEventListener('change', loadAnalyticsData);
-});
-
-function initializeCharts() {
-    // Configuración global de Chart.js
-    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial';
-    Chart.defaults.color = '#6B7280';
-    
-    // Gráfico de ventas
-    const salesCtx = document.getElementById('salesChart').getContext('2d');
-    salesChart = new Chart(salesCtx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [{
-                label: 'Ingresos',
-                data: [],
-                borderColor: 'rgb(147, 51, 234)',
-                backgroundColor: 'rgba(147, 51, 234, 0.1)',
-                tension: 0.4
-            }]
+// Gráfico de tendencia de ventas
+const salesCtx = document.getElementById('salesTrendChart').getContext('2d');
+new Chart(salesCtx, {
+    type: 'line',
+    data: {
+        labels: salesTrendData.map(d => new Date(d.date).toLocaleDateString()),
+        datasets: [{
+            label: 'Ingresos',
+            data: salesTrendData.map(d => d.revenue),
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            tension: 0.1
+        }, {
+            label: 'Pedidos',
+            data: salesTrendData.map(d => d.orders),
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+            yAxisID: 'y1',
+            tension: 0.1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false,
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return '$' + value.toFixed(0);
-                        }
+        scales: {
+            y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                ticks: {
+                    callback: function(value) {
+                        return '$' + value.toFixed(0);
                     }
                 }
-            }
-        }
-    });
-    
-    // Gráfico de productos más vendidos
-    const topProductsCtx = document.getElementById('topProductsChart').getContext('2d');
-    topProductsChart = new Chart(topProductsCtx, {
-        type: 'bar',
-        data: {
-            labels: [],
-            datasets: [{
-                label: 'Unidades vendidas',
-                data: [],
-                backgroundColor: 'rgba(59, 130, 246, 0.8)'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'y',
-            plugins: {
-                legend: {
-                    display: false
+            },
+            y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                grid: {
+                    drawOnChartArea: false,
                 }
             }
         }
-    });
-    
-    // Gráfico de categorías
-    const categoriesCtx = document.getElementById('categoriesChart').getContext('2d');
-    categoriesChart = new Chart(categoriesCtx, {
-        type: 'doughnut',
-        data: {
-            labels: [],
-            datasets: [{
-                data: [],
-                backgroundColor: [
-                    'rgba(239, 68, 68, 0.8)',
-                    'rgba(245, 158, 11, 0.8)',
-                    'rgba(16, 185, 129, 0.8)',
-                    'rgba(59, 130, 246, 0.8)',
-                    'rgba(139, 92, 246, 0.8)'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                }
-            }
-        }
-    });
-    
-    // Gráfico de horarios pico
-    const peakHoursCtx = document.getElementById('peakHoursChart').getContext('2d');
-    peakHoursChart = new Chart(peakHoursCtx, {
-        type: 'radar',
-        data: {
-            labels: [],
-            datasets: [{
-                label: 'Pedidos',
-                data: [],
-                borderColor: 'rgb(16, 185, 129)',
-                backgroundColor: 'rgba(16, 185, 129, 0.2)'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                r: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-}
-
-async function loadAnalyticsData() {
-    const period = document.getElementById('periodSelector').value;
-    showLoading(true);
-    
-    try {
-        const response = await fetch(`/dashboard/analytics/data?period=${period}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            updateCharts(data.analytics);
-            updateKPIs(data.kpis);
-        } else {
-            Notifications.error('Error al cargar los datos');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        Notifications.error('Error de conexión');
-    } finally {
-        showLoading(false);
     }
-}
+});
 
-function updateCharts(analytics) {
-    // Actualizar gráfico de ventas
-    salesChart.data.labels = analytics.sales_trend.labels;
-    salesChart.data.datasets[0].data = analytics.sales_trend.data;
-    salesChart.update();
-    
-    // Actualizar productos más vendidos
-    topProductsChart.data.labels = analytics.top_products.labels;
-    topProductsChart.data.datasets[0].data = analytics.top_products.data;
-    topProductsChart.update();
-    
-    // Actualizar categorías
-    categoriesChart.data.labels = analytics.categories.labels;
-    categoriesChart.data.datasets[0].data = analytics.categories.data;
-    categoriesChart.update();
-    
-    // Actualizar horarios pico
-    peakHoursChart.data.labels = analytics.peak_hours.labels;
-    peakHoursChart.data.datasets[0].data = analytics.peak_hours.data;
-    peakHoursChart.update();
-}
-
-function updateKPIs(kpis) {
-    // Actualizar los valores de los KPIs en el DOM
-    // Esto se haría mejor con un framework reactivo, pero para mantenerlo simple...
-}
-
-function showLoading(show) {
-    const overlay = document.getElementById('loadingOverlay');
-    if (show) {
-        overlay.classList.remove('hidden');
-    } else {
-        overlay.classList.add('hidden');
+// Gráfico de ventas por hora
+const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+new Chart(hourlyCtx, {
+    type: 'bar',
+    data: {
+        labels: hourlyData.map(d => d.hour + ':00'),
+        datasets: [{
+            label: 'Pedidos',
+            data: hourlyData.map(d => d.orders),
+            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
     }
-}
+});
 
-function exportReport() {
-    const period = document.getElementById('periodSelector').value;
-    window.location.href = `/dashboard/analytics/export?period=${period}`;
-}
+// Gráfico de segmentos de clientes
+const segmentCtx = document.getElementById('customerSegmentChart').getContext('2d');
+new Chart(segmentCtx, {
+    type: 'doughnut',
+    data: {
+        labels: customerSegments.map(s => s.name),
+        datasets: [{
+            data: customerSegments.map(s => s.count),
+            backgroundColor: [
+                'rgba(255, 206, 86, 0.8)',
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+                'rgba(255, 159, 64, 0.8)'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+            }
+        }
+    }
+});
 
-// Función para cambiar entre vistas del gráfico de ventas
-function updateSalesChart(type) {
-    // Implementar cambio entre ingresos y número de pedidos
+// Función para cambiar rango de fechas
+function changeDateRange(range) {
+    let dateFrom, dateTo = new Date();
+    
+    switch(range) {
+        case 'today':
+            dateFrom = new Date();
+            break;
+        case 'week':
+            dateFrom = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            break;
+        case 'month':
+            dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            break;
+        case 'quarter':
+            dateFrom = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+            break;
+    }
+    
+    const params = new URLSearchParams({
+        date_from: dateFrom.toISOString().split('T')[0],
+        date_to: dateTo.toISOString().split('T')[0]
+    });
+    
+    window.location.href = `{{ url_for('dashboard.analytics') }}?${params.toString()}`;
 }
 </script>
+
+<style>
+@media print {
+    .btn-group, .navbar, .sidebar { display: none !important; }
+    .card { break-inside: avoid; }
+}
+</style>
 {% endblock %}
