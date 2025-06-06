@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+
+{% block title %}Facturas - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Gestión de Facturas</h1>
+                <div>
+                    <a href="{{ url_for('dashboard.new_invoice') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Nueva Factura
+                    </a>
+                </div>
+            </div>
+
+            <!-- Estadísticas rápidas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card border-left-primary">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Total Facturas
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold">{{ invoices.total }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-file-invoice fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-left-warning">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                        Pendientes de Pago
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold">{{ total_pending }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-clock fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-left-danger">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                        Vencidas
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold">{{ total_overdue }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-left-info">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                        Facturas Recurrentes
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold">
+                                        <a href="#" class="text-info">Configurar</a>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-sync fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="get" class="form-inline">
+                        <div class="form-group mr-3">
+                            <label for="status" class="mr-2">Estado:</label>
+                            <select name="status" id="status" class="form-control form-control-sm">
+                                <option value="">Todos</option>
+                                <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Borrador</option>
+                                <option value="issued" {% if status_filter == 'issued' %}selected{% endif %}>Emitida</option>
+                                <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>Pagada</option>
+                                <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Cancelada</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="fas fa-filter"></i> Filtrar
+                        </button>
+                        <a href="{{ url_for('dashboard.invoices') }}" class="btn btn-sm btn-secondary ml-2">
+                            <i class="fas fa-times"></i> Limpiar
+                        </a>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Lista de facturas -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Número</th>
+                                    <th>Fecha</th>
+                                    <th>Cliente</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th>Vencimiento</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invoice in invoices.items %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('dashboard.invoice_detail', invoice_id=invoice.id) }}">
+                                            {{ invoice.invoice_number }}
+                                        </a>
+                                    </td>
+                                    <td>{{ invoice.created_at.strftime('%d/%m/%Y') }}</td>
+                                    <td>
+                                        {{ invoice.customer_name }}
+                                        {% if invoice.customer_tax_id %}
+                                        <br><small class="text-muted">{{ invoice.customer_tax_id }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right">
+                                        <strong>${{ "{:,.2f}".format(invoice.total) }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if invoice.status == 'draft' %}
+                                            <span class="badge badge-secondary">Borrador</span>
+                                        {% elif invoice.status == 'issued' %}
+                                            <span class="badge badge-warning">Emitida</span>
+                                        {% elif invoice.status == 'paid' %}
+                                            <span class="badge badge-success">Pagada</span>
+                                        {% elif invoice.status == 'cancelled' %}
+                                            <span class="badge badge-danger">Cancelada</span>
+                                        {% endif %}
+                                        
+                                        {% if invoice.is_overdue %}
+                                            <span class="badge badge-danger">
+                                                <i class="fas fa-exclamation-triangle"></i> Vencida
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if invoice.due_date %}
+                                            {{ invoice.due_date.strftime('%d/%m/%Y') }}
+                                            {% if invoice.is_overdue %}
+                                                <br><small class="text-danger">
+                                                    {{ (datetime.utcnow() - invoice.due_date).days }} días vencida
+                                                </small>
+                                            {% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{{ url_for('dashboard.invoice_detail', invoice_id=invoice.id) }}" 
+                                               class="btn btn-outline-primary" title="Ver">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if invoice.status == 'draft' %}
+                                            <a href="{{ url_for('dashboard.edit_invoice', invoice_id=invoice.id) }}" 
+                                               class="btn btn-outline-secondary" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% endif %}
+                                            {% if invoice.status in ['issued', 'paid'] %}
+                                            <button onclick="printInvoice({{ invoice.id }})" 
+                                                    class="btn btn-outline-secondary" title="Imprimir">
+                                                <i class="fas fa-print"></i>
+                                            </button>
+                                            <button onclick="sendInvoice({{ invoice.id }})" 
+                                                    class="btn btn-outline-secondary" title="Enviar por email">
+                                                <i class="fas fa-envelope"></i>
+                                            </button>
+                                            {% endif %}
+                                            {% if invoice.status == 'issued' %}
+                                            <button onclick="registerPayment({{ invoice.id }})" 
+                                                    class="btn btn-outline-success" title="Registrar pago">
+                                                <i class="fas fa-dollar-sign"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <p class="mb-0">No hay facturas que mostrar</p>
+                                        <a href="{{ url_for('dashboard.new_invoice') }}" class="btn btn-primary mt-2">
+                                            Crear primera factura
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginación -->
+                    {% if invoices.has_prev or invoices.has_next %}
+                    <nav aria-label="Navegación de facturas">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item {% if not invoices.has_prev %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('dashboard.invoices', page=invoices.prev_num, status=status_filter) }}" 
+                                   aria-label="Anterior">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                            
+                            {% for page_num in invoices.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                                {% if page_num %}
+                                    <li class="page-item {% if page_num == invoices.page %}active{% endif %}">
+                                        <a class="page-link" href="{{ url_for('dashboard.invoices', page=page_num, status=status_filter) }}">
+                                            {{ page_num }}
+                                        </a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <li class="page-item {% if not invoices.has_next %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('dashboard.invoices', page=invoices.next_num, status=status_filter) }}" 
+                                   aria-label="Siguiente">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para registrar pago -->
+<div class="modal fade" id="paymentModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Pago</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="paymentForm">
+                    <input type="hidden" id="paymentInvoiceId">
+                    <div class="form-group">
+                        <label for="paymentAmount">Monto</label>
+                        <input type="number" class="form-control" id="paymentAmount" 
+                               step="0.01" required>
+                        <small class="form-text text-muted">
+                            Monto pendiente: $<span id="pendingAmount">0.00</span>
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentMethod">Método de pago</label>
+                        <select class="form-control" id="paymentMethod" required>
+                            <option value="cash">Efectivo</option>
+                            <option value="card">Tarjeta</option>
+                            <option value="transfer">Transferencia</option>
+                            <option value="check">Cheque</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentReference">Referencia (opcional)</label>
+                        <input type="text" class="form-control" id="paymentReference" 
+                               placeholder="Número de transferencia, cheque, etc.">
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentNotes">Notas (opcional)</label>
+                        <textarea class="form-control" id="paymentNotes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="submitPayment()">
+                    Registrar Pago
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function registerPayment(invoiceId) {
+    // Aquí deberías hacer una petición para obtener el monto pendiente
+    $('#paymentInvoiceId').val(invoiceId);
+    $('#paymentModal').modal('show');
+    
+    // Obtener información de la factura
+    fetch(`/dashboard/api/invoice/${invoiceId}`)
+        .then(response => response.json())
+        .then(data => {
+            $('#pendingAmount').text(data.pending_amount.toFixed(2));
+            $('#paymentAmount').val(data.pending_amount.toFixed(2));
+        });
+}
+
+function submitPayment() {
+    const invoiceId = $('#paymentInvoiceId').val();
+    const data = {
+        amount: parseFloat($('#paymentAmount').val()),
+        payment_method: $('#paymentMethod').val(),
+        reference: $('#paymentReference').val(),
+        notes: $('#paymentNotes').val()
+    };
+    
+    fetch(`/dashboard/invoices/${invoiceId}/payment`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            $('#paymentModal').modal('hide');
+            location.reload();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    });
+}
+
+function printInvoice(invoiceId) {
+    window.open(`/dashboard/invoices/${invoiceId}/print`, '_blank');
+}
+
+function sendInvoice(invoiceId) {
+    if (confirm('¿Enviar factura por email al cliente?')) {
+        fetch(`/dashboard/invoices/${invoiceId}/send`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Factura enviada exitosamente');
+            } else {
+                alert('Error: ' + result.message);
+            }
+        });
+    }
+}
+</script>
+
+<style>
+.border-left-primary {
+    border-left: 4px solid #4e73df;
+}
+.border-left-warning {
+    border-left: 4px solid #f6c23e;
+}
+.border-left-danger {
+    border-left: 4px solid #e74a3b;
+}
+.border-left-info {
+    border-left: 4px solid #36b9cc;
+}
+</style>
+{% endblock %}
