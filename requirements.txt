@@ -1,16 +1,168 @@
-Flask==3.0.0
-Flask-SQLAlchemy==3.1.1
-Flask-Login==0.6.3
-Flask-WTF==1.2.1
+# Core Flask dependencies
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Login==0.6.2
+Flask-WTF==1.1.1
 Flask-Migrate==4.0.5
+
+# Database
+psycopg2-binary==2.9.7
+SQLAlchemy==2.0.21
+
+# Forms and validation
+WTForms==3.0.1
+email-validator==2.0.0
+
+# Security
 Flask-Bcrypt==1.0.1
-WTForms==3.1.1
-email-validator==2.1.0.post1
 python-dotenv==1.0.0
-psycopg2-binary==2.9.9
+itsdangerous==2.1.2
+
+# Image handling
+Pillow==10.0.1
+
+# Utilities
+click==8.1.7
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Production server
 gunicorn==21.2.0
-Pillow==10.1.0
-python-slugify==8.0.1
+gevent==23.9.1
+
+# Caching
+redis==5.0.1
+hiredis==2.2.3
+
+# Background tasks (optional, for advanced features)
+celery==5.3.4
+celery[redis]==5.3.4
+
+# Email
 Flask-Mail==0.9.1
+
+# API and serialization
+marshmallow==3.20.1
+marshmallow-sqlalchemy==0.29.0
+
+# Monitoring and logging
+Flask-Limiter==3.5.0
+python-json-logger==2.0.7
+sentry-sdk[flask]==1.38.0
+
+# Testing
+pytest==7.4.3
+pytest-flask==1.3.0
+pytest-cov==4.1.0
+factory-boy==3.3.0
+
+# Development tools
+Flask-DebugToolbar==0.13.1
+python-decouple==3.8
+
+# Data export
+XlsxWriter==3.1.9
 reportlab==4.0.7
-schedule==1.2.0
+weasyprint==60.1
+
+# Scheduled tasks
+APScheduler==3.10.4
+
+# Performance
+Flask-Caching==2.1.0
+pylibmc==1.6.3
+
+# Search functionality (optional)
+elasticsearch==8.11.0
+
+# Webhooks and integrations
+requests==2.31.0
+httpx==0.25.2
+
+# QR Code generation
+qrcode==7.4.2
+
+# Timezone support
+tzlocal==5.2
+
+# Data analysis
+pandas==2.1.4
+numpy==1.26.2
+
+# GraphQL support (optional)
+graphene==3.3
+graphene-sqlalchemy==3.0.0rc1
+
+# Rate limiting
+slowapi==0.1.9
+
+# Deployment specific
+honcho==1.1.0
+
+# Documentation
+flask-apispec==0.11.4
+apispec==6.3.0
+
+# CORS support
+Flask-CORS==4.0.0
+
+# Session management
+Flask-Session==0.5.0
+
+# Compression
+Flask-Compress==1.14
+
+# Profiling (development)
+flask-profiler==1.8.1
+line-profiler==4.1.1
+
+# Database utilities
+alembic==1.13.0
+sqlalchemy-utils==0.41.1
+
+# CSV handling
+python-csv==0.0.13
+
+# Barcode generation
+python-barcode==0.15.1
+
+# SMS notifications (optional)
+twilio==8.10.0
+
+# Payment processing (optional)
+stripe==7.8.0
+
+# AWS integration (optional)
+boto3==1.34.11
+
+# Markdown support
+Flask-Markdown==0.3
+markdown==3.5.1
+
+# Admin interface (optional)
+Flask-Admin==1.6.1
+
+# Feature flags
+flask-feature-flag==1.0.1
+
+# Internationalization
+Flask-Babel==4.0.0
+
+# Health checks
+py-healthcheck==1.10.1
+
+# Metrics
+prometheus-flask-exporter==0.23.0
+
+# JSON handling
+orjson==3.9.10
+
+# CLI enhancements
+colorama==0.4.6
+tabulate==0.9.0
+
+# Environment validation
+environs==11.0.0
+
+# Database connection pooling
+SQLAlchemy-Utils==0.41.1
