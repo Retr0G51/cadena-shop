@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resumen Diario - {{ user.business_name }}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+        .header {
+            background-color: #4e73df;
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        .metric-card {
+            background-color: #f8f9fc;
+            border-left: 4px solid #4e73df;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .metric-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4e73df;
+        }
+        .metric-label {
+            color: #858796;
+            font-size: 14px;
+        }
+        .products-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .products-table th {
+            background-color: #f8f9fc;
+            padding: 10px;
+            text-align: left;
+            font-size: 14px;
+            color: #858796;
+        }
+        .products-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e3e6f0;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #4e73df;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .footer {
+            background-color: #f8f9fc;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #858796;
+        }
+        .alert {
+            background-color: #fff3cd;
+            border-left: 4px solid #f6c23e;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Resumen del día {{ date }}</h1>
+            <p style="margin: 5px 0;">{{ user.business_name }}</p>
+        </div>
+        
+        <div class="content">
+            <h2>Hola {{ user.business_name.split()[0] }},</h2>
+            <p>Aquí está tu resumen de ventas del día:</p>
+            
+            <div class="metric-card">
+                <div class="metric-value">${{ "{:,.2f}".format(total_revenue) }}</div>
+                <div class="metric-label">INGRESOS TOTALES</div>
+            </div>
+            
+            <div style="display: flex; gap: 20px;">
+                <div class="metric-card" style="flex: 1;">
+                    <div class="metric-value">{{ total_orders }}</div>
+                    <div class="metric-label">PEDIDOS TOTALES</div>
+                </div>
+                
+                <div class="metric-card" style="flex: 1;">
+                    <div class="metric-value">{{ completed_orders }}</div>
+                    <div class="metric-label">COMPLETADOS</div>
+                </div>
+            </div>
+            
+            {% if completion_rate < 80 %}
+            <div class="alert">
+                <strong>⚠️ Atención:</strong> Tu tasa de completación ({{ "{:.0f}".format(completion_rate) }}%) está por debajo del 80%. 
+                Revisa los pedidos pendientes.
+            </div>
+            {% endif %}
+            
+            {% if top_products %}
+            <h3>Productos más vendidos hoy:</h3>
+            <table class="products-table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th style="text-align: right;">Cantidad</th>
+                        <th style="text-align: right;">Ingresos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in top_products[:5] %}
+                    <tr>
+                        <td>{{ product.name }}</td>
+                        <td style="text-align: right;">{{ product.quantity }}</td>
+                        <td style="text-align: right;">${{ "{:.2f}".format(product.revenue) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="{{ url_for('dashboard.index', _external=True) }}" class="button">
+                    Ver Dashboard Completo
+                </a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Este es un resumen automático enviado por PedidosSaaS.</p>
+            <p>¿No quieres recibir estos emails? 
+                <a href="{{ url_for('dashboard.settings', _external=True) }}">Actualiza tus preferencias</a>
+            </p>
+            <p>&copy; {{ datetime.now().year }} PedidosSaaS. Todos los derechos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>
