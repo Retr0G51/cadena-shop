@@ -1,106 +1,66 @@
-# run.py
+#!/usr/bin/env python
+"""
+Script principal para ejecutar PedidosSaaS en desarrollo
+Uso: python run.py
+"""
 import os
 from app import create_app, db
 from app.models import User, Product, Order, OrderItem
+from app.models.customer import Customer
+from app.models.invoice import Invoice
+from app.models.inventory import Warehouse, StockItem
 
-# Crear la aplicación
+# Crear aplicación con configuración de desarrollo
 app = create_app(os.environ.get('FLASK_ENV', 'development'))
 
+# Contexto de shell para debugging
 @app.shell_context_processor
 def make_shell_context():
-    """Contexto para flask shell"""
+    """Crea el contexto para flask shell"""
     return {
         'db': db,
         'User': User,
         'Product': Product,
         'Order': Order,
-        'OrderItem': OrderItem
+        'OrderItem': OrderItem,
+        'Customer': Customer,
+        'Invoice': Invoice,
+        'Warehouse': Warehouse,
+        'StockItem': StockItem
     }
 
-@app.cli.command()
-def init_db():
-    """Inicializar la base de datos"""
-    db.create_all()
-    print("Base de datos inicializada!")
-
-@app.cli.command()
-def create_demo():
-    """Crear datos de demostración"""
-    # Verificar si ya existe un usuario demo
-    if User.query.filter_by(email='demo@example.com').first():
-        print("Los datos de demostración ya existen!")
-        return
-    
-    # Crear usuario demo
-    demo_user = User(
-        business_name='Panadería La Esquina',
-        email='demo@example.com',
-        phone='+53 5555-5555',
-        address='Calle 23 #456, Vedado, La Habana',
-        description='La mejor panadería del barrio. Pan fresco todos los días.'
-    )
-    demo_user.set_password('demo123')
-    db.session.add(demo_user)
-    db.session.commit()
-    
-    # Crear productos demo
-    products = [
-        {
-            'name': 'Pan de Flauta',
-            'description': 'Pan fresco recién horneado',
-            'price': 5.00,
-            'stock': 50,
-            'category': 'Panes',
-            'is_featured': True
-        },
-        {
-            'name': 'Cake de Chocolate',
-            'description': 'Delicioso cake de chocolate con cobertura',
-            'price': 25.00,
-            'stock': 10,
-            'category': 'Dulces',
-            'is_featured': True
-        },
-        {
-            'name': 'Croquetas (10 unidades)',
-            'description': 'Croquetas caseras de jamón',
-            'price': 15.00,
-            'stock': 30,
-            'category': 'Salados'
-        },
-        {
-            'name': 'Pizza Personal',
-            'description': 'Pizza personal con jamón y queso',
-            'price': 20.00,
-            'stock': 20,
-            'category': 'Pizzas'
-        },
-        {
-            'name': 'Refresco Natural',
-            'description': 'Jugo natural de frutas tropicales',
-            'price': 8.00,
-            'stock': 25,
-            'category': 'Bebidas'
-        },
-        {
-            'name': 'Pastelitos de Guayaba',
-            'description': 'Tradicionales pastelitos rellenos de guayaba',
-            'price': 10.00,
-            'stock': 40,
-            'category': 'Dulces'
-        }
-    ]
-    
-    for product_data in products:
-        product = Product(user_id=demo_user.id, **product_data)
-        db.session.add(product)
-    
-    db.session.commit()
-    
-    print(f"Datos de demostración creados!")
-    print(f"Email: demo@example.com")
-    print(f"Contraseña: demo123")
-    print(f"URL de la tienda: /tienda/{demo_user.slug}")
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    # Verificar si la base de datos existe
+    with app.app_context():
+        try:
+            # Intentar conectar a la base de datos
+            db.engine.execute('SELECT 1')
+        except Exception as e:
+            print(f"Error conectando a la base de datos: {e}")
+            print("Ejecuta 'python init_db.py' para crear la base de datos")
+            exit(1)
+    
+    # Configuración para desarrollo
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    
+    print(f"""
+    ╔═══════════════════════════════════════╗
+    ║        PedidosSaaS v1.0.0            ║
+    ╟───────────────────────────────────────╢
+    ║  Ambiente: {os.environ.get('FLASK_ENV', 'development'):26} ║
+    ║  Debug: {str(debug):29} ║
+    ║  URL: http://localhost:{port:<15} ║
+    ╚═══════════════════════════════════════╝
+    
+    Presiona CTRL+C para detener el servidor
+    """)
+    
+    # Ejecutar aplicación
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=debug,
+        use_reloader=debug,
+        use_debugger=debug
+    )
