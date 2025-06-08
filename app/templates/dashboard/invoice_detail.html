@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+
+{% block title %}Factura {{ invoice.invoice_number }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Factura {{ invoice.invoice_number }}</h1>
+                <div class="btn-group" role="group">
+                    {% if invoice.status == 'draft' %}
+                    <a href="{{ url_for('dashboard.edit_invoice', invoice_id=invoice.id) }}" 
+                       class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Editar
+                    </a>
+                    <button onclick="issueInvoice()" class="btn btn-success">
+                        <i class="fas fa-check"></i> Emitir
+                    </button>
+                    {% endif %}
+                    
+                    {% if invoice.status in ['issued', 'paid'] %}
+                    <button onclick="printInvoice()" class="btn btn-outline-primary">
+                        <i class="fas fa-print"></i> Imprimir
+                    </button>
+                    <button onclick="downloadPDF()" class="btn btn-outline-primary">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </button>
+                    <button onclick="sendByEmail()" class="btn btn-outline-primary">
+                        <i class="fas fa-envelope"></i> Enviar
+                    </button>
+                    {% endif %}
+                    
+                    {% if invoice.status == 'issued' %}
+                    <button onclick="registerPayment()" class="btn btn-success">
+                        <i class="fas fa-dollar-sign"></i> Registrar Pago
+                    </button>
+                    {% endif %}
+                    
+                    <a href="{{ url_for('dashboard.invoices') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver
+                    </a>
+                </div>
+            </div>
+
+            <!-- Estado y alertas -->
+            {% if invoice.status == 'draft' %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> Esta factura está en borrador. 
+                Debe ser emitida para ser válida fiscalmente.
+            </div>
+            {% endif %}
+            
+            {% if invoice.is_overdue %}
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> Esta factura está vencida hace 
+                {{ (datetime.utcnow() - invoice.due_date).days }} días.
+            </div>
+            {% endif %}
+
+            <div class="row">
+                <!-- Información principal -->
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <!-- Encabezado de factura -->
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <h4>{{ current_user.business_name }}</h4>
+                                    <p class="mb-1">{{ current_user.address }}</p>
+                                    <p class="mb-1">Tel: {{ current_user.phone }}</p>
+                                    <p class="mb-1">Email: {{ current_user.email }}</p>
+                                    {% if current_user.tax_id %}
+                                    <p class="mb-0">NIF: {{ current_user.tax_id }}</p>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6 text-right">
+                                    <h2 class="text-primary">FACTURA</h2>
+                                    <h4>{{ invoice.invoice_number }}</h4>
+                                    <p class="mb-1">Fecha: {{ invoice.created_at.strftime('%d/%m/%Y') }}</p>
+                                    {% if invoice.due_date %}
+                                    <p class="mb-0">Vencimiento: {{ invoice.due_date.strftime('%d/%m/%Y') }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <!-- Datos del cliente -->
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <h5>Facturar a:</h5>
+                                    <p class="mb-1"><strong>{{ invoice.customer_name }}</strong></p>
+                                    {% if invoice.customer_tax_id %}
+                                    <p class="mb-1">{{ invoice.customer_tax_id }}</p>
+                                    {% endif %}
+                                    {% if invoice.customer_address %}
+                                    <p class="mb-1">{{ invoice.customer_address }}</p>
+                                    {% endif %}
+                                    {% if invoice.customer_phone %}
+                                    <p class="mb-1">Tel: {{ invoice.customer_phone }}</p>
+                                    {% endif %}
+                                    {% if invoice.customer_email %}
+                                    <p class="mb-0">Email: {{ invoice.customer_email }}</p>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <!-- Información adicional si es necesaria -->
+                                </div>
+                            </div>
+
+                            <!-- Items de la factura -->
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Descripción</th>
+                                        <th class="text-right">Cantidad</th>
+                                        <th class="text-right">Precio Unit.</th>
+                                        <th class="text-right">Desc. %</th>
+                                        <th class="text-right">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in invoice.items %}
+                                    <tr>
+                                        <td>{{ item.description }}</td>
+                                        <td class="text-right">{{ item.quantity|int }}</td>
+                                        <td class="text-right">${{ "{:.2f}".format(item.unit_price) }}</td>
+                                        <td class="text-right">
+                                            {% if item.discount_rate > 0 %}
+                                                {{ item.discount_rate }}%
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-right">${{ "{:.2f}".format(item.subtotal) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="4" class="text-right"><strong>Subtotal:</strong></td>
+                                        <td class="text-right">${{ "{:.2f}".format(invoice.subtotal) }}</td>
+                                    </tr>
+                                    {% if invoice.discount_amount > 0 %}
+                                    <tr>
+                                        <td colspan="4" class="text-right">
+                                            <strong>Descuento ({{ invoice.discount_rate }}%):</strong>
+                                        </td>
+                                        <td class="text-right">-${{ "{:.2f}".format(invoice.discount_amount) }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    <tr>
+                                        <td colspan="4" class="text-right">
+                                            <strong>IVA ({{ invoice.tax_rate }}%):</strong>
+                                        </td>
+                                        <td class="text-right">${{ "{:.2f}".format(invoice.tax_amount) }}</td>
+                                    </tr>
+                                    <tr class="table-primary">
+                                        <td colspan="4" class="text-right"><h4>Total:</h4></td>
+                                        <td class="text-right"><h4>${{ "{:.2f}".format(invoice.total) }}</h4></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+
+                            {% if invoice.notes %}
+                            <div class="mt-4">
+                                <h6>Notas:</h6>
+                                <p>{{ invoice.notes }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel lateral -->
+                <div class="col-md-4">
+                    <!-- Estado de pago -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Estado de Pago</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center mb-3">
+                                {% if invoice.status == 'draft' %}
+                                    <span class="badge badge-secondary" style="font-size: 1.2em;">BORRADOR</span>
+                                {% elif invoice.status == 'issued' %}
+                                    <span class="badge badge-warning" style="font-size: 1.2em;">PENDIENTE DE PAGO</span>
+                                {% elif invoice.status == 'paid' %}
+                                    <span class="badge badge-success" style="font-size: 1.2em;">PAGADA</span>
+                                {% elif invoice.status == 'cancelled' %}
+                                    <span class="badge badge-danger" style="font-size: 1.2em;">CANCELADA</span>
+                                {% endif %}
+                            </div>
+                            
+                            <dl class="row mb-0">
+                                <dt class="col-sm-6">Total factura:</dt>
+                                <dd class="col-sm-6 text-right">${{ "{:.2f}".format(invoice.total) }}</dd>
+                                
+                                <dt class="col-sm-6">Pagado:</dt>
+                                <dd class="col-sm-6 text-right">${{ "{:.2f}".format(invoice.get_paid_amount()) }}</dd>
+                                
+                                <dt class="col-sm-6">Pendiente:</dt>
+                                <dd class="col-sm-6 text-right">
+                                    <strong>${{ "{:.2f}".format(invoice.get_pending_amount()) }}</strong>
+                                </dd>
+                            </dl>
+                            
+                            {% if invoice.payment_method %}
+                            <p class="mb-0">
+                                <small>Método: {{ invoice.payment_method|title }}</small>
+                            </p>
+                            {% endif %}
+                            
+                            {% if invoice.payment_date %}
+                            <p class="mb-0">
+                                <small>Pagado el: {{ invoice.payment_date.strftime('%d/%m/%Y') }}</small>
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Historial de pagos -->
+                    {% if invoice.payments.count() > 0 %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Historial de Pagos</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Monto</th>
+                                            <th>Método</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for payment in invoice.payments %}
+                                        <tr>
+                                            <td>{{ payment.payment_date.strftime('%d/%m') }}</td>
+                                            <td>${{ "{:.2f}".format(payment.amount) }}</td>
+                                            <td>{{ payment.payment_method|title }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Información adicional -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Información</h5>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-6">Creada:</dt>
+                                <dd class="col-sm-6">{{ invoice.created_at.strftime('%d/%m/%Y %H:%M') }}</dd>
+                                
+                                {% if invoice.issued_at %}
+                                <dt class="col-sm-6">Emitida:</dt>
+                                <dd class="col-sm-6">{{ invoice.issued_at.strftime('%d/%m/%Y %H:%M') }}</dd>
+                                {% endif %}
+                                
+                                {% if invoice.order_id %}
+                                <dt class="col-sm-6">Pedido:</dt>
+                                <dd class="col-sm-6">
+                                    <a href="{{ url_for('dashboard.order_detail', order_id=invoice.order_id) }}">
+                                        Ver pedido
+                                    </a>
+                                </dd>
+                                {% endif %}
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function issueInvoice() {
+    if (confirm('¿Emitir esta factura? Una vez emitida no podrá ser editada.')) {
+        fetch(`/dashboard/invoices/{{ invoice.id }}/issue`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + result.message);
+            }
+        });
+    }
+}
+
+function printInvoice() {
+    window.open(`/dashboard/invoices/{{ invoice.id }}/print`, '_blank');
+}
+
+function downloadPDF() {
+    window.location.href = `/dashboard/invoices/{{ invoice.id }}/pdf`;
+}
+
+function sendByEmail() {
+    if (confirm('¿Enviar factura por email a {{ invoice.customer_email }}?')) {
+        fetch(`/dashboard/invoices/{{ invoice.id }}/send`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Factura enviada exitosamente');
+            } else {
+                alert('Error: ' + result.message);
+            }
+        });
+    }
+}
+
+function registerPayment() {
+    // Usar el modal de pago del listing
+    window.location.href = "{{ url_for('dashboard.invoices') }}#payment-{{ invoice.id }}";
+}
+</script>
+
+<style>
+@media print {
+    .btn-group, .navbar, .sidebar, .card-header, .alert { 
+        display: none !important; 
+    }
+    .col-md-8 { 
+        width: 100% !important; 
+        max-width: 100% !important; 
+    }
+    .col-md-4 { 
+        display: none !important; 
+    }
+}
+</style>
+{% endblock %}
