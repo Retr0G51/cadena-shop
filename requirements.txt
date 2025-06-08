@@ -30,8 +30,8 @@ pytz==2023.3
 gunicorn==21.2.0
 gevent==23.9.1
 
-# Caching
-redis==5.0.1
+# Caching - CORREGIDO: versión compatible con celery[redis]
+redis==4.6.0
 hiredis==2.2.3
 
 # Background tasks (optional, for advanced features)
@@ -87,7 +87,7 @@ tzlocal==5.2
 
 # Data analysis
 pandas==2.1.4
-numpy==1.24.4
+numpy==1.26.2
 
 # GraphQL support (optional)
 graphene==3.3
@@ -142,7 +142,7 @@ markdown==3.5.1
 # Admin interface (optional)
 Flask-Admin==1.6.1
 
-# Feature flags - CORREGIDO: cambiado de 1.0.1 a 0.2.1
+# Feature flags - CORREGIDO: versión que existe en PyPI
 flask-feature-flag==0.2.1
 
 # Internationalization
