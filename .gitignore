@@ -1,44 +1,286 @@
-# .gitignore
-# Python
+# === Python ===
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# === Virtual Environment ===
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
-.venv
+.venv/
 
-# Flask
+# === Flask ===
 instance/
 .webassets-cache
+
+# === Database ===
 *.db
 *.sqlite
+*.sqlite3
 
-# Environment
+# === Environment Variables ===
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
 
-# IDE
+# === IDE ===
 .vscode/
 .idea/
 *.swp
 *.swo
-.DS_Store
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
 
-# Uploads
-app/static/uploads/*
-!app/static/uploads/.gitkeep
+# === macOS ===
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# === Windows ===
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# === Linux ===
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# === Project Specific ===
+
+# Uploads (mantener estructura pero no archivos)
+app/static/uploads/products/*
+!app/static/uploads/products/.gitkeep
+app/static/uploads/products/thumb/*
+!app/static/uploads/products/thumb/.gitkeep
+app/static/uploads/products/small/*
+!app/static/uploads/products/small/.gitkeep
+app/static/uploads/products/medium/*
+!app/static/uploads/products/medium/.gitkeep
+app/static/uploads/logos/*
+!app/static/uploads/logos/.gitkeep
+app/static/uploads/invoices/*
+!app/static/uploads/invoices/.gitkeep
+
+# Backups
+backups/*
+!backups/.gitkeep
+
+# Exports
+exports/*
+!exports/.gitkeep
 
 # Logs
+logs/*
+!logs/.gitkeep
 *.log
-logs/
+*.log.*
 
-# Testing
+# Temp files
+temp/*
+!temp/.gitkeep
+tmp/
+
+# === Testing ===
 .coverage
+.coverage.*
 htmlcov/
+.tox/
+.nox/
 .pytest_cache/
+cover/
+*.cover
+*.py,cover
+.hypothesis/
+nosetests.xml
+coverage.xml
+*.coveragerc
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+
+# === Jupyter Notebook ===
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+# === pyenv ===
+.python-version
+
+# === pipenv ===
+Pipfile.lock
+
+# === celery ===
+celerybeat-schedule
+celerybeat.pid
+*.pid
+
+# === SageMath parsed files ===
+*.sage.py
+
+# === mkdocs documentation ===
+/site
+
+# === mypy ===
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# === Pyre type checker ===
+.pyre/
+
+# === Production ===
+*.pem
+*.key
+*.crt
+*.csr
+
+# === Node (if using any JS tools) ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === Docker ===
+.dockerignore
+docker-compose.override.yml
+
+# === Terraform ===
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# === Secrets ===
+secrets/
+credentials/
+*.secret
+
+# === Cache ===
+.cache/
+*.cache
+
+# === Compiled files ===
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.dylib
+
+# === Archives ===
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# === Backup files ===
+*.bak
+*.backup
+*.old
+*.orig
+
+# === Editor backups ===
+*~
+*.swp
+*.swo
+
+# === OS generated ===
+.directory
+.Spotlight-V100
+.Trashes
+
+# === Custom ===
+local_settings.py
+development.py
+production.py
+test.py
+
+# === Documentation ===
+docs/_build/
+docs/.doctrees/
+
+# === Migration locks ===
+migrations/alembic.ini
+migrations/versions/*.pyc
+
+# === Performance profiling ===
+*.prof
+*.lprof
+*.stats
+
+# === Railway/Render specific ===
+.railway/
+.render/
+
+# === Heroku ===
+*.pyc
+local_settings.py
+
+# === SSL Certificates ===
+*.pem
+*.crt
+*.key
+*.csr
+ssl/
+
+# === Other ===
+.env.*
+!.env.example
+dump.rdb
+*.sql
+*.dump
