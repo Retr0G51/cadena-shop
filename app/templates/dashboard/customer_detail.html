@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}{{ customer.name }} - Clientes - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1>{{ customer.name }}</h1>
+                    <div class="text-muted">
+                        Cliente desde {{ customer.created_at.strftime('%d/%m/%Y') }}
+                    </div>
+                </div>
+                <div>
+                    <button onclick="editCustomer()" class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Editar
+                    </button>
+                    <button onclick="addInteraction()" class="btn btn-outline-primary">
+                        <i class="fas fa-comment"></i> Agregar Interacción
+                    </button>
+                    <a href="{{ url_for('dashboard.customers') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver
+                    </a>
+                </div>
+            </div>
+
+            <!-- Alertas y badges -->
+            <div class="mb-3">
+                {% if customer.segment == 'vip' %}
+                    <span class="badge badge-warning"><i class="fas fa-star"></i> Cliente VIP</span>
+                {% elif customer.segment == 'premium' %}
+                    <span class="badge badge-info">Cliente Premium</span>
+                {% elif customer.segment == 'regular' %}
+                    <span class="badge badge-primary">Cliente Regular</span>
+                {% else %}
+                    <span class="badge badge-secondary">Cliente Nuevo</span>
+                {% endif %}
+                
+                {% if customer.is_at_risk %}
+                    <span class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i> En Riesgo</span>
+                {% endif %}
+                
+                {% if not customer.accepts_marketing %}
+                    <span class="badge badge-secondary"><i class="fas fa-ban"></i> No acepta marketing</span>
+                {% endif %}
+                
+                {% for tag in customer.tags or [] %}
+                    <span class="badge badge-light">{{ tag }}</span>
+                {% endfor %}
+            </div>
+
+            <div class="row">
+                <!-- Información principal -->
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Información de Contacto</h5>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row">
+                                <dt class="col-sm-4">Teléfono:</dt>
+                                <dd class="col-sm-8">
+                                    <i class="fas fa-phone"></i> {{ customer.phone }}
+                                    <a href="tel:{{ customer.phone }}" class="btn btn-sm btn-outline-primary ml-2">
+                                        <i class="fas fa-phone"></i>
+                                    </a>
+                                </dd>
+                                
+                                {% if customer.alternative_phone %}
+                                <dt class="col-sm-4">Tel. Alt:</dt>
+                                <dd class="col-sm-8">{{ customer.alternative_phone }}</dd>
+                                {% endif %}
+                                
+                                {% if customer.email %}
+                                <dt class="col-sm-4">Email:</dt>
+                                <dd class="col-sm-8">
+                                    <i class="fas fa-envelope"></i> {{ customer.email }}
+                                    <a href="mailto:{{ customer.email }}" class="btn btn-sm btn-outline-primary ml-2">
+                                        <i class="fas fa-envelope"></i>
+                                    </a>
+                                </dd>
+                                {% endif %}
+                                
+                                {% if customer.address %}
+                                <dt class="col-sm-4">Dirección:</dt>
+                                <dd class="col-sm-8">{{ customer.address }}</dd>
+                                {% endif %}
+                                
+                                {% if customer.city %}
+                                <dt class="col-sm-4">Ciudad:</dt>
+                                <dd class="col-sm-8">{{ customer.city }}{% if customer.state %}, {{ customer.state }}{% endif %}</dd>
+                                {% endif %}
+                                
+                                {% if customer.postal_code %}
+                                <dt class="col-sm-4">C.P.:</dt>
+                                <dd class="col-sm-8">{{ customer.postal_code }}</dd>
+                                {% endif %}
+                            </dl>
+                            
+                            {% if customer.customer_type == 'company' %}
+                            <hr>
+                            <h6>Información Fiscal</h6>
+                            <dl class="row">
+                                {% if customer.company_name %}
+                                <dt class="col-sm-4">Empresa:</dt>
+                                <dd class="col-sm-8">{{ customer.company_name }}</dd>
+                                {% endif %}
+                                
+                                {% if customer.tax_id %}
+                                <dt class="col-sm-4">NIF/CIF:</dt>
+                                <dd class="col-sm-8">{{ customer.tax_id }}</dd>
+                                {% endif %}
+                            </dl>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Métricas -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Estadísticas</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <h3 class="text-primary">${{ "{:,.2f}".format(customer.total_spent) }}</h3>
+                                    <small class="text-muted">Total Gastado</small>
+                                </div>
+                                <div class="col-6">
+                                    <h3>{{ customer.total_orders }}</h3>
+                                    <small class="text-muted">Pedidos</small>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <h4>${{ "{:.2f}".format(customer.average_order_value) }}</h4>
+                                    <small class="text-muted">Ticket Promedio</small>
+                                </div>
+                                <div class="col-6">
+                                    <h4>{{ customer.days_since_last_order or 'N/A' }}</h4>
+                                    <small class="text-muted">Días sin comprar</small>
+                                </div>
+                            </div>
+                            
+                            {% if customer.loyalty_points > 0 %}
+                            <hr>
+                            <div class="text-center">
+                                <h4 class="text-warning">{{ customer.loyalty_points }}</h4>
+                                <small class="text-muted">Puntos de Lealtad</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Grupos -->
+                    {% if customer.groups %}
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Grupos</h5>
+                        </div>
+                        <div class="card-body">
+                            {% for group in customer.groups %}
+                            <span class="badge badge-info">{{ group.name }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Historial y actividad -->
+                <div class="col-md-8">
+                    <!-- Notas -->
+                    {% if customer.notes or customer.internal_notes %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Notas</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if customer.notes %}
+                            <p>{{ customer.notes }}</p>
+                            {% endif %}
+                            
+                            {% if customer.internal_notes %}
+                            <div class="alert alert-warning">
+                                <strong>Notas Internas:</strong><br>
+                                {{ customer.internal_notes }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Pestañas -->
+                    <div class="card">
+                        <div class="card-header">
+                            <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                                <li class="nav-item">
+                                    <a class="nav-link active" data-toggle="tab" href="#orders">
+                                        Pedidos Recientes
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-toggle="tab" href="#interactions">
+                                        Interacciones
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-toggle="tab" href="#invoices">
+                                        Facturas
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-body">
+                            <div class="tab-content">
+                                <!-- Pedidos -->
+                                <div class="tab-pane fade show active" id="orders" role="tabpanel">
+                                    {% if recent_orders %}
+                                    <div class="table-responsive">
+                                        <table class="table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Fecha</th>
+                                                    <th>Número</th>
+                                                    <th>Total</th>
+                                                    <th>Estado</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for order in recent_orders %}
+                                                <tr>
+                                                    <td>{{ order.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                                                    <td>{{ order.order_number }}</td>
+                                                    <td>${{ "{:.2f}".format(order.total) }}</td>
+                                                    <td>
+                                                        {% if order.status == 'pending' %}
+                                                            <span class="badge badge-warning">Pendiente</span>
+                                                        {% elif order.status == 'confirmed' %}
+                                                            <span class="badge badge-info">Confirmado</span>
+                                                        {% elif order.status == 'delivered' %}
+                                                            <span class="badge badge-success">Entregado</span>
+                                                        {% elif order.status == 'cancelled' %}
+                                                            <span class="badge badge-danger">Cancelado</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <a href="{{ url_for('dashboard.order_detail', order_id=order.id) }}" 
+                                                           class="btn btn-sm btn-outline-primary">
+                                                            Ver
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <a href="{{ url_for('dashboard.orders', customer_phone=customer.phone) }}" 
+                                       class="btn btn-sm btn-primary">
+                                        Ver todos los pedidos
+                                    </a>
+                                    {% else %}
+                                    <p class="text-muted">No hay pedidos registrados</p>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Interacciones -->
+                                <div class="tab-pane fade" id="interactions" role="tabpanel">
+                                    {% if interactions %}
+                                    <div class="timeline">
+                                        {% for interaction in interactions %}
+                                        <div class="timeline-item">
+                                            <div class="timeline-marker"></div>
+                                            <div class="timeline-content">
+                                                <div class="d-flex justify-content-between">
+                                                    <h6 class="mb-1">
+                                                        {% if interaction.interaction_type == 'call' %}
+                                                            <i class="fas fa-phone"></i> Llamada
+                                                        {% elif interaction.interaction_type == 'email' %}
+                                                            <i class="fas fa-envelope"></i> Email
+                                                        {% elif interaction.interaction_type == 'visit' %}
+                                                            <i class="fas fa-store"></i> Visita
+                                                        {% elif interaction.interaction_type == 'complaint' %}
+                                                            <i class="fas fa-exclamation-circle text-danger"></i> Queja
+                                                        {% else %}
+                                                            <i class="fas fa-sticky-note"></i> Nota
+                                                        {% endif %}
+                                                        - {{ interaction.subject }}
+                                                    </h6>
+                                                    <small class="text-muted">
+                                                        {{ interaction.created_at.strftime('%d/%m/%Y %H:%M') }}
+                                                    </small>
+                                                </div>
+                                                <p class="mb-1">{{ interaction.content }}</p>
+                                                {% if interaction.requires_followup %}
+                                                <div class="alert alert-warning py-1 px-2 mb-0">
+                                                    <small>
+                                                        <i class="fas fa-clock"></i> 
+                                                        Requiere seguimiento
+                                                        {% if interaction.followup_date %}
+                                                            el {{ interaction.followup_date.strftime('%d/%m/%Y') }}
+                                                        {% endif %}
+                                                    </small>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% else %}
+                                    <p class="text-muted">No hay interacciones registradas</p>
+                                    {% endif %}
+                                    
+                                    <button onclick="addInteraction()" class="btn btn-sm btn-primary mt-3">
+                                        <i class="fas fa-plus"></i> Agregar Interacción
+                                    </button>
+                                </div>
+
+                                <!-- Facturas -->
+                                <div class="tab-pane fade" id="invoices" role="tabpanel">
+                                    <p class="text-muted">Próximamente: Historial de facturas del cliente</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: -21px;
+    top: 20px;
+    height: calc(100% - 20px);
+    width: 2px;
+    background-color: #dee2e6;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -25px;
+    top: 5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #4e73df;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #dee2e6;
+}
+
+.timeline-content {
+    background-color: #f8f9fc;
+    padding: 15px;
+    border-radius: 0.35rem;
+}
+</style>
+
+<script>
+function editCustomer() {
+    // Redirigir a la página de clientes con el modal abierto
+    window.location.href = "{{ url_for('dashboard.customers') }}?edit={{ customer.id }}";
+}
+
+function addInteraction() {
+    // Similar, redirigir con parámetro para abrir modal
+    window.location.href = "{{ url_for('dashboard.customers') }}?interaction={{ customer.id }}";
+}
+</script>
+{% endblock %}
