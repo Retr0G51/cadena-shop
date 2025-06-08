@@ -1,9 +1,10 @@
-# Core Flask dependencies
+# Core Flask dependencies - VERSIONES COMPATIBLES
 Flask==2.3.3
 Flask-SQLAlchemy==3.0.5
-Flask-Login==0.6.2
+Flask-Login==0.6.3
 Flask-WTF==1.1.1
 Flask-Migrate==4.0.5
+Werkzeug==2.3.7
 
 # Database
 psycopg2-binary==2.9.7
