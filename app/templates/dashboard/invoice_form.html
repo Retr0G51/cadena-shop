@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+
+{% block title %}{% if invoice %}Editar{% else %}Nueva{% endif %} Factura - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>{% if invoice %}Editar{% else %}Nueva{% endif %} Factura</h1>
+            
+            <form id="invoiceForm" method="post">
+                {{ form.hidden_tag() if form }}
+                
+                <div class="row">
+                    <!-- Información del cliente -->
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Información del Cliente</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="customer_select">Cliente Existente</label>
+                                    <select class="form-control" id="customer_select" name="customer_id">
+                                        <option value="">-- Seleccionar Cliente --</option>
+                                        {% for customer in customers %}
+                                        <option value="{{ customer.id }}" 
+                                                data-name="{{ customer.name }}"
+                                                data-email="{{ customer.email }}"
+                                                data-phone="{{ customer.phone }}"
+                                                data-address="{{ customer.address }}"
+                                                data-tax-id="{{ customer.tax_id }}"
+                                                {% if invoice and invoice.customer_name == customer.name %}selected{% endif %}>
+                                            {{ customer.name }} - {{ customer.phone }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <hr>
+                                
+                                <div class="form-group">
+                                    <label for="customer_name">Nombre *</label>
+                                    <input type="text" class="form-control" id="customer_name" 
+                                           name="customer_name" required
+                                           value="{{ invoice.customer_name if invoice else '' }}">
+                                </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="customer_tax_id">NIF/CIF</label>
+                                        <input type="text" class="form-control" id="customer_tax_id" 
+                                               name="customer_tax_id"
+                                               value="{{ invoice.customer_tax_id if invoice else '' }}">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="customer_phone">Teléfono</label>
+                                        <input type="tel" class="form-control" id="customer_phone" 
+                                               name="customer_phone"
+                                               value="{{ invoice.customer_phone if invoice else '' }}">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="customer_email">Email</label>
+                                    <input type="email" class="form-control" id="customer_email" 
+                                           name="customer_email"
+                                           value="{{ invoice.customer_email if invoice else '' }}">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="customer_address">Dirección</label>
+                                    <textarea class="form-control" id="customer_address" 
+                                              name="customer_address" rows="2">{{ invoice.customer_address if invoice else '' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Información de la factura -->
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Detalles de la Factura</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label>Número de Factura</label>
+                                        <input type="text" class="form-control" readonly 
+                                               value="{{ invoice.invoice_number if invoice else 'Se generará automáticamente' }}">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="issue_date">Fecha de Emisión</label>
+                                        <input type="date" class="form-control" id="issue_date" 
+                                               name="issue_date" 
+                                               value="{{ invoice.issued_at.strftime('%Y-%m-%d') if invoice and invoice.issued_at else datetime.utcnow().strftime('%Y-%m-%d') }}">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="due_date">Fecha de Vencimiento</label>
+                                        <input type="date" class="form-control" id="due_date" 
+                                               name="due_date"
+                                               value="{{ invoice.due_date.strftime('%Y-%m-%d') if invoice and invoice.due_date else (datetime.utcnow() + timedelta(days=30)).strftime('%Y-%m-%d') }}">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="payment_method">Método de Pago</label>
+                                        <select class="form-control" id="payment_method" name="payment_method">
+                                            <option value="">Pendiente</option>
+                                            <option value="cash" {% if invoice and invoice.payment_method == 'cash' %}selected{% endif %}>Efectivo</option>
+                                            <option value="card" {% if invoice and invoice.payment_method == 'card' %}selected{% endif %}>Tarjeta</option>
+                                            <option value="transfer" {% if invoice and invoice.payment_method == 'transfer' %}selected{% endif %}>Transferencia</option>
+                                            <option value="check" {% if invoice and invoice.payment_method == 'check' %}selected{% endif %}>Cheque</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="tax_rate">Tasa de Impuesto (%)</label>
+                                        <input type="number" class="form-control" id="tax_rate" 
+                                               name="tax_rate" step="0.01" min="0" max="100"
+                                               value="{{ invoice.tax_rate if invoice else 18 }}">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="discount_rate">Descuento Global (%)</label>
+                                        <input type="number" class="form-control" id="discount_rate" 
+                                               name="discount_rate" step="0.01" min="0" max="100"
+                                               value="{{ invoice.discount_rate if invoice else 0 }}">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="notes">Notas (visibles en la factura)</label>
+                                    <textarea class="form-control" id="notes" name="notes" rows="2">{{ invoice.notes if invoice else '' }}</textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="internal_notes">Notas Internas</label>
+                                    <textarea class="form-control" id="internal_notes" 
+                                              name="internal_notes" rows="2">{{ invoice.internal_notes if invoice else '' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Items de la factura -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Items de la Factura</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table" id="itemsTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40%">Descripción</th>
+                                        <th style="width: 15%">Cantidad</th>
+                                        <th style="width: 15%">Precio Unit.</th>
+                                        <th style="width: 10%">Desc. %</th>
+                                        <th style="width: 15%">Subtotal</th>
+                                        <th style="width: 5%"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemsBody">
+                                    {% if invoice %}
+                                        {% for item in invoice.items %}
+                                        <tr class="item-row">
+                                            <td>
+                                                <input type="text" class="form-control item-description" 
+                                                       name="items[{{ loop.index0 }}][description]"
+                                                       value="{{ item.description }}" required>
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control item-quantity" 
+                                                       name="items[{{ loop.index0 }}][quantity]"
+                                                       value="{{ item.quantity|int }}" min="1" step="0.01" required>
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control item-price" 
+                                                       name="items[{{ loop.index0 }}][unit_price]"
+                                                       value="{{ item.unit_price }}" min="0" step="0.01" required>
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control item-discount" 
+                                                       name="items[{{ loop.index0 }}][discount_rate]"
+                                                       value="{{ item.discount_rate }}" min="0" max="100" step="0.01">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control item-subtotal" readonly 
+                                                       value="{{ item.subtotal }}">
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-danger remove-item">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% endif %}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="6">
+                                            <button type="button" class="btn btn-sm btn-primary" id="addItem">
+                                                <i class="fas fa-plus"></i> Agregar Item
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-secondary" id="addFromProducts">
+                                                <i class="fas fa-box"></i> Agregar desde Productos
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="4" class="text-right"><strong>Subtotal:</strong></td>
+                                        <td colspan="2">
+                                            <input type="text" class="form-control" id="subtotal" readonly value="0.00">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="4" class="text-right"><strong>Descuento:</strong></td>
+                                        <td colspan="2">
+                                            <input type="text" class="form-control" id="discount_amount" readonly value="0.00">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="4" class="text-right"><strong>Impuestos:</strong></td>
+                                        <td colspan="2">
+                                            <input type="text" class="form-control" id="tax_amount" readonly value="0.00">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="4" class="text-right"><h4>Total:</h4></td>
+                                        <td colspan="2">
+                                            <input type="text" class="form-control" id="total" readonly value="0.00" 
+                                                   style="font-size: 1.25rem; font-weight: bold;">
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Acciones -->
+                <div class="form-group">
+                    <input type="hidden" name="items_json" id="items_json">
+                    <button type="submit" name="action" value="save_draft" class="btn btn-secondary">
+                        <i class="fas fa-save"></i> Guardar Borrador
+                    </button>
+                    <button type="submit" name="action" value="save_and_issue" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Guardar y Emitir
+                    </button>
+                    <a href="{{ url_for('dashboard.invoices') }}" class="btn btn-light">
+                        Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de productos -->
+<div class="modal fade" id="productsModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Seleccionar Productos</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in products %}
+                            <tr>
+                                <td>{{ product.name }}</td>
+                                <td>${{ product.price }}</td>
+                                <td>{{ product.stock if product.track_stock else 'N/A' }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-primary add-product"
+                                            data-name="{{ product.name }}"
+                                            data-price="{{ product.price }}">
+                                        <i class="fas fa-plus"></i> Agregar
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Contador para items
+let itemCount = {{ invoice.items.count() if invoice else 0 }};
+
+// Selección de cliente
+$('#customer_select').change(function() {
+    const selected = $(this).find(':selected');
+    if (selected.val()) {
+        $('#customer_name').val(selected.data('name'));
+        $('#customer_email').val(selected.data('email'));
+        $('#customer_phone').val(selected.data('phone'));
+        $('#customer_address').val(selected.data('address'));
+        $('#customer_tax_id').val(selected.data('tax-id'));
+    }
+});
+
+// Agregar item
+$('#addItem').click(function() {
+    addItemRow();
+});
+
+// Agregar desde productos
+$('#addFromProducts').click(function() {
+    $('#productsModal').modal('show');
+});
+
+// Agregar producto desde modal
+$(document).on('click', '.add-product', function() {
+    const name = $(this).data('name');
+    const price = $(this).data('price');
+    addItemRow(name, 1, price);
+    $('#productsModal').modal('hide');
+});
+
+// Eliminar item
+$(document).on('click', '.remove-item', function() {
+    $(this).closest('tr').remove();
+    updateTotals();
+    reindexItems();
+});
+
+// Calcular subtotal al cambiar cantidad, precio o descuento
+$(document).on('input', '.item-quantity, .item-price, .item-discount', function() {
+    const row = $(this).closest('tr');
+    calculateItemSubtotal(row);
+    updateTotals();
+});
+
+// Actualizar totales al cambiar impuesto o descuento global
+$('#tax_rate, #discount_rate').on('input', function() {
+    updateTotals();
+});
+
+function addItemRow(description = '', quantity = 1, price = '') {
+    const row = `
+        <tr class="item-row">
+            <td>
+                <input type="text" class="form-control item-description" 
+                       name="items[${itemCount}][description]" value="${description}" required>
+            </td>
+            <td>
+                <input type="number" class="form-control item-quantity" 
+                       name="items[${itemCount}][quantity]" value="${quantity}" min="1" step="0.01" required>
+            </td>
+            <td>
+                <input type="number" class="form-control item-price" 
+                       name="items[${itemCount}][unit_price]" value="${price}" min="0" step="0.01" required>
+            </td>
+            <td>
+                <input type="number" class="form-control item-discount" 
+                       name="items[${itemCount}][discount_rate]" value="0" min="0" max="100" step="0.01">
+            </td>
+            <td>
+                <input type="text" class="form-control item-subtotal" readonly value="0.00">
+            </td>
+            <td>
+                <button type="button" class="btn btn-sm btn-danger remove-item">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `;
+    
+    $('#itemsBody').append(row);
+    itemCount++;
+    
+    // Calcular subtotal si tiene valores
+    if (price) {
+        const newRow = $('#itemsBody tr:last');
+        calculateItemSubtotal(newRow);
+        updateTotals();
+    }
+}
+
+function calculateItemSubtotal(row) {
+    const quantity = parseFloat(row.find('.item-quantity').val()) || 0;
+    const price = parseFloat(row.find('.item-price').val()) || 0;
+    const discount = parseFloat(row.find('.item-discount').val()) || 0;
+    
+    let subtotal = quantity * price;
+    if (discount > 0) {
+        subtotal = subtotal * (1 - discount / 100);
+    }
+    
+    row.find('.item-subtotal').val(subtotal.toFixed(2));
+}
+
+function updateTotals() {
+    let subtotal = 0;
+    
+    // Calcular subtotal de items
+    $('.item-subtotal').each(function() {
+        subtotal += parseFloat($(this).val()) || 0;
+    });
+    
+    $('#subtotal').val(subtotal.toFixed(2));
+    
+    // Calcular descuento global
+    const discountRate = parseFloat($('#discount_rate').val()) || 0;
+    const discountAmount = subtotal * (discountRate / 100);
+    $('#discount_amount').val(discountAmount.toFixed(2));
+    
+    // Base imponible
+    const taxableBase = subtotal - discountAmount;
+    
+    // Calcular impuestos
+    const taxRate = parseFloat($('#tax_rate').val()) || 0;
+    const taxAmount = taxableBase * (taxRate / 100);
+    $('#tax_amount').val(taxAmount.toFixed(2));
+    
+    // Total
+    const total = taxableBase + taxAmount;
+    $('#total').val(total.toFixed(2));
+}
+
+function reindexItems() {
+    $('.item-row').each(function(index) {
+        $(this).find('input').each(function() {
+            const name = $(this).attr('name');
+            if (name) {
+                const newName = name.replace(/\[\d+\]/, `[${index}]`);
+                $(this).attr('name', newName);
+            }
+        });
+    });
+}
+
+// Validar formulario antes de enviar
+$('#invoiceForm').submit(function(e) {
+    // Verificar que hay al menos un item
+    if ($('.item-row').length === 0) {
+        e.preventDefault();
+        alert('Debe agregar al menos un item a la factura');
+        return false;
+    }
+    
+    // Crear JSON de items
+    const items = [];
+    $('.item-row').each(function() {
+        items.push({
+            description: $(this).find('.item-description').val(),
+            quantity: parseFloat($(this).find('.item-quantity').val()),
+            unit_price: parseFloat($(this).find('.item-price').val()),
+            discount_rate: parseFloat($(this).find('.item-discount').val()) || 0
+        });
+    });
+    
+    $('#items_json').val(JSON.stringify(items));
+});
+
+// Calcular totales al cargar
+$(document).ready(function() {
+    updateTotals();
+});
+</script>
+{% endblock %}
