@@ -1,27 +1,26 @@
 """
-Modelos de PedidosSaaS - Importa todos los modelos
+Modelos de la aplicación PedidosSaaS
+Centraliza todos los modelos para facilitar imports
 """
 
-# Importar modelos básicos desde el archivo models.py del directorio padre
-from ..models import User, Product, Order, OrderItem
+# Importar modelos principales desde el archivo base
+from app.models import User, Product, Order, OrderItem
 
-# Importar modelos avanzados si existen
-try:
-    from .invoice import Invoice, InvoiceSeries, InvoiceItem, InvoicePayment, RecurringInvoice
-except ImportError:
-    Invoice = InvoiceSeries = InvoiceItem = InvoicePayment = RecurringInvoice = None
+# Importar modelos adicionales
+from app.modelsa.invoice import (
+    Invoice, InvoiceSeries, InvoiceItem, InvoicePayment, RecurringInvoice
+)
 
-try:
-    from .inventory import Warehouse, StockItem, InventoryMovement, StockAlert, PurchaseOrder, PurchaseOrderItem
-except ImportError:
-    Warehouse = StockItem = InventoryMovement = StockAlert = PurchaseOrder = PurchaseOrderItem = None
+from app.modelsa.inventory import (
+    Warehouse, StockItem, InventoryMovement, StockAlert, 
+    PurchaseOrder, PurchaseOrderItem
+)
 
-try:
-    from .customer import (Customer, CustomerGroup, CustomerInteraction, 
-                          MarketingCampaign, CampaignRecipient, LoyaltyProgram, LoyaltyTransaction)
-except ImportError:
-    Customer = CustomerGroup = CustomerInteraction = None
-    MarketingCampaign = CampaignRecipient = LoyaltyProgram = LoyaltyTransaction = None
+from app.modelsa.customer import (
+    Customer, CustomerGroup, CustomerInteraction,
+    MarketingCampaign, CampaignRecipient, 
+    LoyaltyProgram, LoyaltyTransaction
+)
 
 # Exportar todos los modelos
 __all__ = [
