@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "pip install -r requirements.txt && python init_db.py",
+    "buildCommand": "pip install -r requirements.txt",
     "watchPatterns": [
       "app/**",
       "*.py",
