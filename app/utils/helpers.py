@@ -508,3 +508,33 @@ def format_file_size(size_bytes: int) -> str:
             return f"{size_bytes:.1f} {unit}"
         size_bytes /= 1024.0
     return f"{size_bytes:.1f} PB"
+
+def save_picture(form_picture, folder='products'):
+    """Guarda imagen subida optimizada"""
+    try:
+        random_hex = secrets.token_hex(8)
+        _, f_ext = os.path.splitext(form_picture.filename)
+        picture_filename = random_hex + f_ext
+        picture_path = os.path.join(current_app.root_path, 'static/uploads', folder, picture_filename)
+        
+        os.makedirs(os.path.dirname(picture_path), exist_ok=True)
+        
+        # Optimizar imagen
+        img = Image.open(form_picture)
+        img.thumbnail((800, 600))
+        img.save(picture_path, optimize=True, quality=85)
+        
+        return picture_filename
+    except Exception:
+        return None
+
+def delete_picture(filename, folder='products'):
+    """Elimina imagen del servidor"""
+    try:
+        if filename:
+            picture_path = os.path.join(current_app.root_path, 'static/uploads', folder, filename)
+            if os.path.exists(picture_path):
+                os.remove(picture_path)
+        return True
+    except Exception:
+        return False
