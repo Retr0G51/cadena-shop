@@ -7,7 +7,7 @@ from flask import Blueprint
 bp = Blueprint('api', __name__)
 
 # Importar rutas después de crear el blueprint para evitar importaciones circulares
-from app.api import auth, products, orders, customers, analytics, webhooks
+from app.api import auth, products, orders, customers, analytics
 
 # Registrar namespaces
 from app.api.auth import api_auth
