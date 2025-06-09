@@ -4,7 +4,7 @@ Centraliza todos los modelos para facilitar imports
 """
 
 # Importar modelos principales desde el archivo base
-from app.models_base import User, Product, Order, OrderItem
+from app.models import User, Product, Order, OrderItem
 
 # Importar modelos adicionales
 from app.models.invoice import (
