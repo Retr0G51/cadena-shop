@@ -4,19 +4,19 @@ Centraliza todos los modelos para facilitar imports
 """
 
 # Importar modelos principales desde el archivo base
-from app.models import User, Product, Order, OrderItem
+from app.model import User, Product, Order, OrderItem
 
 # Importar modelos adicionales
-from app.modelsa.invoice import (
+from app.models.invoice import (
     Invoice, InvoiceSeries, InvoiceItem, InvoicePayment, RecurringInvoice
 )
 
-from app.modelsa.inventory import (
+from app.models.inventory import (
     Warehouse, StockItem, InventoryMovement, StockAlert, 
     PurchaseOrder, PurchaseOrderItem
 )
 
-from app.modelsa.customer import (
+from app.models.customer import (
     Customer, CustomerGroup, CustomerInteraction,
     MarketingCampaign, CampaignRecipient, 
     LoyaltyProgram, LoyaltyTransaction
