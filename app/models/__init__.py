@@ -1,26 +1,27 @@
 """
-Modelos de la aplicación PedidosSaaS
-Centraliza todos los modelos para facilitar imports
+Modelos de PedidosSaaS - Importa todos los modelos
 """
 
-# Importar modelos principales desde el archivo base
-from app.models import User, Product, Order, OrderItem
+# Importar modelos básicos desde el archivo models.py del directorio padre
+from ..models import User, Product, Order, OrderItem
 
-# Importar modelos adicionales
-from app.models.invoice import (
-    Invoice, InvoiceSeries, InvoiceItem, InvoicePayment, RecurringInvoice
-)
+# Importar modelos avanzados si existen
+try:
+    from .invoice import Invoice, InvoiceSeries, InvoiceItem, InvoicePayment, RecurringInvoice
+except ImportError:
+    Invoice = InvoiceSeries = InvoiceItem = InvoicePayment = RecurringInvoice = None
 
-from app.models.inventory import (
-    Warehouse, StockItem, InventoryMovement, StockAlert, 
-    PurchaseOrder, PurchaseOrderItem
-)
+try:
+    from .inventory import Warehouse, StockItem, InventoryMovement, StockAlert, PurchaseOrder, PurchaseOrderItem
+except ImportError:
+    Warehouse = StockItem = InventoryMovement = StockAlert = PurchaseOrder = PurchaseOrderItem = None
 
-from app.models.customer import (
-    Customer, CustomerGroup, CustomerInteraction,
-    MarketingCampaign, CampaignRecipient, 
-    LoyaltyProgram, LoyaltyTransaction
-)
+try:
+    from .customer import (Customer, CustomerGroup, CustomerInteraction, 
+                          MarketingCampaign, CampaignRecipient, LoyaltyProgram, LoyaltyTransaction)
+except ImportError:
+    Customer = CustomerGroup = CustomerInteraction = None
+    MarketingCampaign = CampaignRecipient = LoyaltyProgram = LoyaltyTransaction = None
 
 # Exportar todos los modelos
 __all__ = [
