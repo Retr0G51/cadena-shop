@@ -43,6 +43,9 @@ celery[redis]==5.3.4
 # Email
 Flask-Mail==0.9.1
 
+# Phone number validation
+phonenumbers==8.13.26
+
 # API and serialization
 marshmallow==3.20.1
 marshmallow-sqlalchemy==0.29.0
