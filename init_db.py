@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from app import create_app, db
-from app.models import User, Product, Order, OrderItem
+from app.model import User, Product, Order, OrderItem
 from app.models.invoice import Invoice, InvoiceSeries, InvoiceItem, InvoicePayment, RecurringInvoice
 from app.models.inventory import Warehouse, StockItem, InventoryMovement, StockAlert, PurchaseOrder, PurchaseOrderItem
 from app.models.customer import (Customer, CustomerGroup, CustomerInteraction, 
