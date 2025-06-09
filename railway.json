@@ -10,7 +10,7 @@
     ]
   },
   "deploy": {
-    "startCommand": "gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 4 --threads 2 --worker-class gevent --timeout 120 --keep-alive 5 --log-level info --access-logfile - --error-logfile -",
+    "startCommand": "python init_db.py && gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 4 --threads 2 --worker-class gevent --timeout 120 --keep-alive 5 --log-level info --access-logfile - --error-logfile -",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
@@ -67,38 +67,6 @@
           "name": "redis-data"
         }
       ]
-    },
-    {
-      "name": "worker",
-      "icon": "⚙️",
-      "source": {
-        "repo": "."
-      },
-      "startCommand": "celery -A app.celery worker --loglevel=info --concurrency=2",
-      "variables": {
-        "DATABASE_URL": {
-          "fromService": "postgres"
-        },
-        "REDIS_URL": {
-          "fromService": "redis"
-        }
-      }
-    },
-    {
-      "name": "scheduler",
-      "icon": "⏰",
-      "source": {
-        "repo": "."
-      },
-      "startCommand": "celery -A app.celery beat --loglevel=info",
-      "variables": {
-        "DATABASE_URL": {
-          "fromService": "postgres"
-        },
-        "REDIS_URL": {
-          "fromService": "redis"
-        }
-      }
     }
   ],
   "environments": {
@@ -107,13 +75,6 @@
         "FLASK_ENV": "production",
         "LOG_LEVEL": "INFO",
         "WEB_CONCURRENCY": "4"
-      }
-    },
-    "staging": {
-      "variables": {
-        "FLASK_ENV": "production",
-        "LOG_LEVEL": "DEBUG",
-        "WEB_CONCURRENCY": "2"
       }
     }
   }
