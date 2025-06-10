@@ -76,7 +76,7 @@ def create_app(config_name=None):
 def register_blueprints(app):
     """Registra todos los blueprints de la aplicación"""
     
-    try:
+   try:
         # Blueprint principal
         print("=== IMPORTANDO BLUEPRINT MAIN ===", file=sys.stderr)
         from app.main import bp as main_bp
@@ -85,11 +85,11 @@ def register_blueprints(app):
         print("=== MAIN BLUEPRINT REGISTRADO ===", file=sys.stderr)
         
         # Blueprint de autenticación
-         print("=== IMPORTANDO BLUEPRINT AUTH ===", file=sys.stderr)
-         from app.auth import bp as auth_bp
-         app.register_blueprint(auth_bp, url_prefix='/auth')
-         print("=== AUTH BLUEPRINT REGISTRADO ===", file=sys.stderr)
-        
+        print("=== IMPORTANDO BLUEPRINT AUTH ===", file=sys.stderr)
+        from app.auth import bp as auth_bp
+        app.register_blueprint(auth_bp, url_prefix='/auth')
+        print("=== AUTH BLUEPRINT REGISTRADO ===", file=sys.stderr)
+       
         # COMENTADOS TEMPORALMENTE PARA DEBUGGING
          Blueprint del dashboard
          print("=== IMPORTANDO BLUEPRINT DASHBOARD ===", file=sys.stderr)
