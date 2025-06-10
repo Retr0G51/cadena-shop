@@ -75,8 +75,7 @@ def create_app(config_name=None):
 
 def register_blueprints(app):
     """Registra todos los blueprints de la aplicación"""
-    
-   try:
+    try:
         # Blueprint principal
         print("=== IMPORTANDO BLUEPRINT MAIN ===", file=sys.stderr)
         from app.main import bp as main_bp
