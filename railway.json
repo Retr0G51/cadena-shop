@@ -10,7 +10,7 @@
     ]
   },
   "deploy": {
-    "startCommand": "python init_db.py && gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 4 --threads 2 --worker-class gevent --timeout 120 --keep-alive 5 --log-level info --access-logfile - --error-logfile -",
+    "startCommand": "gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 4 --threads 2 --worker-class gevent --timeout 120 --keep-alive 5 --log-level info --access-logfile - --error-logfile -",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
