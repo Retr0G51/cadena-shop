@@ -85,10 +85,10 @@ def register_blueprints(app):
         print("=== MAIN BLUEPRINT REGISTRADO ===", file=sys.stderr)
         
         # Blueprint de autenticación
-        print("=== IMPORTANDO BLUEPRINT AUTH ===", file=sys.stderr)
-        from app.auth import bp as auth_bp
-        app.register_blueprint(auth_bp, url_prefix='/auth')
-        print("=== AUTH BLUEPRINT REGISTRADO ===", file=sys.stderr)
+        # print("=== IMPORTANDO BLUEPRINT AUTH ===", file=sys.stderr)
+        # from app.auth import bp as auth_bp
+        # app.register_blueprint(auth_bp, url_prefix='/auth')
+        # print("=== AUTH BLUEPRINT REGISTRADO ===", file=sys.stderr)
         
         # COMENTADOS TEMPORALMENTE PARA DEBUGGING
         # Blueprint del dashboard
