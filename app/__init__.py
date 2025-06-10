@@ -212,6 +212,33 @@ def register_cli_commands(app):
         import pytest
         pytest.main(['-v', 'tests/'])
 
+    @app.cli.command()
+    def migrate_customer_id():
+        """Crea migración para customer_id en orders"""
+        from app.extensions import db
+    
+        try:
+            # Agregar columna
+            db.engine.execute('ALTER TABLE orders ADD COLUMN customer_id INTEGER')
+        
+            # Agregar foreign key
+            db.engine.execute('''
+                ALTER TABLE orders 
+                ADD CONSTRAINT fk_orders_customer_id 
+                FOREIGN KEY (customer_id) REFERENCES customers(id)
+            ''')
+        
+            print("✅ Migración customer_id aplicada exitosamente")
+        
+        except Exception as e:
+            print(f"❌ Error en migración: {e}")
+            # Intentar solo agregar columna si falla
+            try:
+                db.engine.execute('ALTER TABLE orders ADD COLUMN customer_id INTEGER')
+                print("✅ Columna customer_id agregada (sin foreign key)")
+            except Exception as e2:
+                print(f"❌ Error agregando columna: {e2}")
+
 def register_template_filters(app):
     """Registra filtros personalizados para templates"""
     
