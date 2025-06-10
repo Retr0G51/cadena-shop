@@ -1,8 +1,8 @@
-"""
 Aplicación Flask para PedidosSaaS
 Factory pattern para crear la aplicación con todas las funcionalidades
 """
 import os
+import sys
 import logging
 from logging.handlers import RotatingFileHandler
 from flask import Flask, request, current_app
@@ -23,69 +23,104 @@ def create_app(config_name=None):
     Returns:
         Aplicación Flask configurada
     """
+    print("=== INICIANDO CREATE_APP ===", file=sys.stderr)
     app = Flask(__name__)
     
     # Cargar configuración
     if config_name is None:
         config_name = os.environ.get('FLASK_ENV', 'development')
     
+    print(f"=== CONFIGURACIÓN: {config_name} ===", file=sys.stderr)
     app.config.from_object(config[config_name])
     
     # Inicializar extensiones
+    print("=== INICIALIZANDO EXTENSIONES ===", file=sys.stderr)
     init_extensions(app)
     
     # Registrar blueprints
+    print("=== REGISTRANDO BLUEPRINTS ===", file=sys.stderr)
     register_blueprints(app)
     
     # Registrar manejadores de errores
+    print("=== REGISTRANDO ERROR HANDLERS ===", file=sys.stderr)
     register_error_handlers(app)
     
     # Configurar logging
+    print("=== CONFIGURANDO LOGGING ===", file=sys.stderr)
     configure_logging(app)
     
     # Registrar comandos CLI
+    print("=== REGISTRANDO CLI COMMANDS ===", file=sys.stderr)
     register_cli_commands(app)
     
     # Registrar template filters
+    print("=== REGISTRANDO TEMPLATE FILTERS ===", file=sys.stderr)
     register_template_filters(app)
     
     # Registrar context processors
+    print("=== REGISTRANDO CONTEXT PROCESSORS ===", file=sys.stderr)
     register_context_processors(app)
     
     # Configurar Celery si está disponible
+    print("=== CONFIGURANDO CELERY ===", file=sys.stderr)
     configure_celery(app)
     
     # Crear directorios necesarios
+    print("=== CREANDO DIRECTORIOS ===", file=sys.stderr)
     create_directories(app)
     
+    print("=== CREATE_APP COMPLETADO ===", file=sys.stderr)
     return app
 
 def register_blueprints(app):
     """Registra todos los blueprints de la aplicación"""
     
-    # Blueprint principal
-    from app.main import bp as main_bp
-    app.register_blueprint(main_bp)
-    
-    # Blueprint de autenticación
-    from app.auth import bp as auth_bp
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    
-    # Blueprint del dashboard
-    from app.dashboard import bp as dashboard_bp
-    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
-    
-    # Blueprint de tienda pública
-    from app.public import bp as public_bp
-    app.register_blueprint(public_bp, url_prefix='/store')
-    
-    # Blueprint de API
-    from app.api import bp as api_bp
-    app.register_blueprint(api_bp, url_prefix='/api/v1')
-    
-    # Blueprint de webhooks
-    from app.webhooks import bp as webhooks_bp
-    app.register_blueprint(webhooks_bp, url_prefix='/webhooks')
+    try:
+        # Blueprint principal
+        print("=== IMPORTANDO BLUEPRINT MAIN ===", file=sys.stderr)
+        from app.main import bp as main_bp
+        print(f"=== MAIN BP IMPORTADO: {main_bp} ===", file=sys.stderr)
+        app.register_blueprint(main_bp)
+        print("=== MAIN BLUEPRINT REGISTRADO ===", file=sys.stderr)
+        
+        # Blueprint de autenticación
+        print("=== IMPORTANDO BLUEPRINT AUTH ===", file=sys.stderr)
+        from app.auth import bp as auth_bp
+        app.register_blueprint(auth_bp, url_prefix='/auth')
+        print("=== AUTH BLUEPRINT REGISTRADO ===", file=sys.stderr)
+        
+        # COMENTADOS TEMPORALMENTE PARA DEBUGGING
+        # Blueprint del dashboard
+        # print("=== IMPORTANDO BLUEPRINT DASHBOARD ===", file=sys.stderr)
+        # from app.dashboard import bp as dashboard_bp
+        # app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+        # print("=== DASHBOARD BLUEPRINT REGISTRADO ===", file=sys.stderr)
+        
+        # Blueprint de tienda pública
+        # print("=== IMPORTANDO BLUEPRINT PUBLIC ===", file=sys.stderr)
+        # from app.public import bp as public_bp
+        # app.register_blueprint(public_bp, url_prefix='/store')
+        # print("=== PUBLIC BLUEPRINT REGISTRADO ===", file=sys.stderr)
+        
+        # Blueprint de API
+        # print("=== IMPORTANDO BLUEPRINT API ===", file=sys.stderr)
+        # from app.api import bp as api_bp
+        # app.register_blueprint(api_bp, url_prefix='/api/v1')
+        # print("=== API BLUEPRINT REGISTRADO ===", file=sys.stderr)
+        
+        # Blueprint de webhooks
+        # print("=== IMPORTANDO BLUEPRINT WEBHOOKS ===", file=sys.stderr)
+        # from app.webhooks import bp as webhooks_bp
+        # app.register_blueprint(webhooks_bp, url_prefix='/webhooks')
+        # print("=== WEBHOOKS BLUEPRINT REGISTRADO ===", file=sys.stderr)
+        
+        print("=== TODOS LOS BLUEPRINTS REGISTRADOS ===", file=sys.stderr)
+        
+    except Exception as e:
+        print(f"=== ERROR REGISTRANDO BLUEPRINTS: {str(e)} ===", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        raise
 
 def register_error_handlers(app):
     """Registra manejadores de errores personalizados"""
@@ -225,25 +260,6 @@ def register_context_processors(app):
             'app_version': app.config.get('APP_VERSION', '1.0.0'),
             'features': app.config.get('FEATURES', {})
         }
-    
-    # @app.context_processor
-    # def inject_user_data():
-    #     """Inyecta datos del usuario actual"""
-    #     from flask_login import current_user
-    #     if current_user.is_authenticated:
-            # Contar notificaciones no leídas, alertas, etc.
-    #        from app.models.inventory import StockAlert
-            
-     #       unread_alerts = StockAlert.query.filter_by(
-     #           user_id=current_user.id,
-     #          is_read=False
-     #       ).count()
-            
-     #       return {
-     #           'unread_alerts': unread_alerts,
-     #           'user_plan': getattr(current_user, 'plan', 'free')
-     #       }
-     #   return {}
 
 def configure_celery(app):
     """Configura Celery para tareas asíncronas"""
