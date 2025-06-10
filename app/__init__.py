@@ -1,3 +1,4 @@
+"""
 Aplicación Flask para PedidosSaaS
 Factory pattern para crear la aplicación con todas las funcionalidades
 """
