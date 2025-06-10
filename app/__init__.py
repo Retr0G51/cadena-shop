@@ -227,24 +227,24 @@ def register_context_processors(app):
             'features': app.config.get('FEATURES', {})
         }
     
-    @app.context_processor
-    def inject_user_data():
-        """Inyecta datos del usuario actual"""
-        from flask_login import current_user
-        if current_user.is_authenticated:
+    # @app.context_processor
+    # def inject_user_data():
+    #     """Inyecta datos del usuario actual"""
+    #     from flask_login import current_user
+    #     if current_user.is_authenticated:
             # Contar notificaciones no leídas, alertas, etc.
-            from app.models.inventory import StockAlert
+    #        from app.models.inventory import StockAlert
             
-            unread_alerts = StockAlert.query.filter_by(
-                user_id=current_user.id,
-                is_read=False
-            ).count()
+     #       unread_alerts = StockAlert.query.filter_by(
+     #           user_id=current_user.id,
+     #          is_read=False
+     #       ).count()
             
-            return {
-                'unread_alerts': unread_alerts,
-                'user_plan': getattr(current_user, 'plan', 'free')
-            }
-        return {}
+     #       return {
+     #           'unread_alerts': unread_alerts,
+     #           'user_plan': getattr(current_user, 'plan', 'free')
+     #       }
+     #   return {}
 
 def configure_celery(app):
     """Configura Celery para tareas asíncronas"""
