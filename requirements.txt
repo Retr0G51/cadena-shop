@@ -126,7 +126,7 @@ alembic==1.13.0
 sqlalchemy-utils==0.41.1
 
 # CSV handling
-python-csv==0.0.13
+# python-csv==0.0.13
 
 # Barcode generation
 python-barcode==0.15.1
