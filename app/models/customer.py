@@ -72,13 +72,12 @@ class Customer(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relaciones
-    
-orders = db.relationship(
+    orders = db.relationship(
     'Order', 
     foreign_keys='Order.customer_id',
     backref='customer', 
     lazy='dynamic'
-)
+    )
     groups = db.relationship('CustomerGroup', secondary='customer_group_members', backref='customers')
     interactions = db.relationship('CustomerInteraction', backref='customer', lazy='dynamic', cascade='all, delete-orphan')
     
