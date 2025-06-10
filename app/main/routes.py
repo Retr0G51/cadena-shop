@@ -96,7 +96,7 @@ def health_check():
     
     # Check database
     try:
-         db.session.execute(text('SELECT 1'))
+        db.session.execute(text('SELECT 1'))
         health_status['checks']['database'] = {
             'status': 'up',
             'response_time_ms': 0
