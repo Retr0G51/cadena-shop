@@ -138,6 +138,7 @@ class Order(db.Model):
     
     # Foreign key
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
     
     # Relaciones
     items = db.relationship('OrderItem', backref='order', lazy='dynamic', cascade='all, delete-orphan')
