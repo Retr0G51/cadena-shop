@@ -10,6 +10,7 @@ from app.extensions import db
 from app.models import User, Product, Order
 from app.utils.cache import cache
 import os
+from sqlalchemy import text
 
 @bp.route('/')
 def index():
@@ -95,7 +96,7 @@ def health_check():
     
     # Check database
     try:
-        db.session.execute('SELECT 1')
+         db.session.execute(text('SELECT 1'))
         health_status['checks']['database'] = {
             'status': 'up',
             'response_time_ms': 0
