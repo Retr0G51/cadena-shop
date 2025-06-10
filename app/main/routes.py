@@ -14,31 +14,51 @@ from sqlalchemy import text
 
 @bp.route('/')
 def index():
-   """Página principal / Landing page"""
-   if current_user.is_authenticated:
-       # Estadísticas rápidas para usuarios autenticados
-       total_products = Product.query.filter_by(user_id=current_user.id, is_active=True).count()
-       today_orders = Order.query.filter_by(user_id=current_user.id)\
-           .filter(Order.created_at >= datetime.utcnow().date()).count()
+    """Página principal / Landing page"""
+    import sys
+    print("=== INDEX ROUTE EJECUTÁNDOSE ===", file=sys.stderr)
+    
+    try:
+        print("Step 1: Checkeando current_user", file=sys.stderr)
+        authenticated = current_user.is_authenticated
+        print(f"Step 2: User authenticated: {authenticated}", file=sys.stderr)
+        
+        if authenticated:
+            print("Step 3: Contando productos", file=sys.stderr)
+            total_products = Product.query.filter_by(user_id=current_user.id, is_active=True).count()
+            print(f"Step 4: Total products: {total_products}", file=sys.stderr)
+            
+            print("Step 5: Contando órdenes", file=sys.stderr)
+            today_orders = Order.query.filter_by(user_id=current_user.id)\
+                .filter(Order.created_at >= datetime.utcnow().date()).count()
+            print(f"Step 6: Today orders: {today_orders}", file=sys.stderr)
+            
+            print("Step 7: Buscando featured stores", file=sys.stderr)
+            featured_stores = User.query.filter_by(is_active=True)\
+                .filter(User.id != current_user.id).limit(3).all()
+            print(f"Step 8: Featured stores: {len(featured_stores)}", file=sys.stderr)
+            
+            print("Step 9: Renderizando template", file=sys.stderr)
+            return render_template('main/index.html',
+                total_products=total_products,
+                today_orders=today_orders,
+                featured_stores=featured_stores
+            )
+        
+        print("Step 10: Usuario no autenticado", file=sys.stderr)
+        featured_stores = User.query.filter_by(is_active=True)\
+            .order_by(User.created_at.desc()).limit(3).all()
+        print(f"Step 11: Featured stores: {len(featured_stores)}", file=sys.stderr)
+        
+        print("Step 12: Renderizando template visitante", file=sys.stderr)
+        return render_template('main/index.html', featured_stores=featured_stores)
+        
+    except Exception as e:
+        print(f"ERROR EN INDEX: {str(e)}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        return f"Error: {str(e)}", 500
        
-       # Tiendas destacadas para usuarios autenticados también
-       featured_stores = User.query.filter_by(is_active=True)\
-           .filter(User.id != current_user.id)\
-           .limit(3).all()
-       
-       return render_template('main/index.html',
-           total_products=total_products,
-           today_orders=today_orders,
-           featured_stores=featured_stores
-       )
-   
-   # Landing page para visitantes
-   featured_stores = User.query.filter_by(is_active=True)\
-       .order_by(User.created_at.desc())\
-       .limit(3).all()
-   
-   return render_template('main/index.html', featured_stores=featured_stores)
-
 @bp.route('/features')
 def features():
     """Página de características"""
