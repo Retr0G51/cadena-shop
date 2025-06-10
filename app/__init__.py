@@ -88,25 +88,25 @@ def register_blueprints(app):
         from app.auth import bp as auth_bp
         app.register_blueprint(auth_bp, url_prefix='/auth')
         print("=== AUTH BLUEPRINT REGISTRADO ===", file=sys.stderr)
-       
+        
         # COMENTADOS TEMPORALMENTE PARA DEBUGGING
-         # Blueprint del dashboard
-         print("=== IMPORTANDO BLUEPRINT DASHBOARD ===", file=sys.stderr)
-         from app.dashboard import bp as dashboard_bp
-         app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
-         print("=== DASHBOARD BLUEPRINT REGISTRADO ===", file=sys.stderr)
+        # Blueprint del dashboard
+        print("=== IMPORTANDO BLUEPRINT DASHBOARD ===", file=sys.stderr)
+        from app.dashboard import bp as dashboard_bp
+        app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+        print("=== DASHBOARD BLUEPRINT REGISTRADO ===", file=sys.stderr)
         
         # Blueprint de tienda pública
-         print("=== IMPORTANDO BLUEPRINT PUBLIC ===", file=sys.stderr)
-         from app.public import bp as public_bp
-         app.register_blueprint(public_bp, url_prefix='/store')
-         print("=== PUBLIC BLUEPRINT REGISTRADO ===", file=sys.stderr)
-          
+        print("=== IMPORTANDO BLUEPRINT PUBLIC ===", file=sys.stderr)
+        from app.public import bp as public_bp
+        app.register_blueprint(public_bp, url_prefix='/store')
+        print("=== PUBLIC BLUEPRINT REGISTRADO ===", file=sys.stderr)
+        
         # Blueprint de API
-         print("=== IMPORTANDO BLUEPRINT API ===", file=sys.stderr)
-         from app.api import bp as api_bp
-         app.register_blueprint(api_bp, url_prefix='/api/v1')
-         print("=== API BLUEPRINT REGISTRADO ===", file=sys.stderr)
+        print("=== IMPORTANDO BLUEPRINT API ===", file=sys.stderr)
+        from app.api import bp as api_bp
+        app.register_blueprint(api_bp, url_prefix='/api/v1')
+        print("=== API BLUEPRINT REGISTRADO ===", file=sys.stderr)
         
         # Blueprint de webhooks
         # print("=== IMPORTANDO BLUEPRINT WEBHOOKS ===", file=sys.stderr)
