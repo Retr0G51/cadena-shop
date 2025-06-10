@@ -10,7 +10,7 @@
     ]
   },
   "deploy": {
-    "startCommand": "python wsgi.py",
+    "startCommand": "gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --log-level info --access-logfile - --error-logfile -",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyMaxRetries": 3
