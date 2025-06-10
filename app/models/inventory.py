@@ -24,7 +24,12 @@ class Warehouse(db.Model):
     
     # Relaciones
     stock_items = db.relationship('StockItem', backref='warehouse', lazy='dynamic')
-    movements = db.relationship('InventoryMovement', backref='warehouse', lazy='dynamic')
+    movements = db.relationship(
+    'InventoryMovement',
+    foreign_keys='InventoryMovement.warehouse_id',
+    backref='warehouse',
+    lazy='dynamic'
+)
     
     def __repr__(self):
         return f'<Warehouse {self.name}>'
