@@ -90,7 +90,7 @@ def register_blueprints(app):
         print("=== AUTH BLUEPRINT REGISTRADO ===", file=sys.stderr)
        
         # COMENTADOS TEMPORALMENTE PARA DEBUGGING
-         Blueprint del dashboard
+         # Blueprint del dashboard
          print("=== IMPORTANDO BLUEPRINT DASHBOARD ===", file=sys.stderr)
          from app.dashboard import bp as dashboard_bp
          app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
