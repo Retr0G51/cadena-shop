@@ -14,20 +14,30 @@ from sqlalchemy import text
 
 @bp.route('/')
 def index():
-    """Página principal / Landing page"""
-    if current_user.is_authenticated:
-        # Estadísticas rápidas para usuarios autenticados
-        total_products = Product.query.filter_by(user_id=current_user.id, is_active=True).count()
-        today_orders = Order.query.filter_by(user_id=current_user.id)\
-            .filter(Order.created_at >= datetime.utcnow().date()).count()
-        
-        return render_template('main/index.html',
-            total_products=total_products,
-            today_orders=today_orders
-        )
-    
-    # Landing page para visitantes
-    return render_template('main/index.html')
+   """Página principal / Landing page"""
+   if current_user.is_authenticated:
+       # Estadísticas rápidas para usuarios autenticados
+       total_products = Product.query.filter_by(user_id=current_user.id, is_active=True).count()
+       today_orders = Order.query.filter_by(user_id=current_user.id)\
+           .filter(Order.created_at >= datetime.utcnow().date()).count()
+       
+       # Tiendas destacadas para usuarios autenticados también
+       featured_stores = User.query.filter_by(is_active=True)\
+           .filter(User.id != current_user.id)\
+           .limit(3).all()
+       
+       return render_template('main/index.html',
+           total_products=total_products,
+           today_orders=today_orders,
+           featured_stores=featured_stores
+       )
+   
+   # Landing page para visitantes
+   featured_stores = User.query.filter_by(is_active=True)\
+       .order_by(User.created_at.desc())\
+       .limit(3).all()
+   
+   return render_template('main/index.html', featured_stores=featured_stores)
 
 @bp.route('/features')
 def features():
