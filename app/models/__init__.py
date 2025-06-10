@@ -3,6 +3,14 @@ Modelos de la aplicación PedidosSaaS
 Centraliza todos los modelos para facilitar imports
 """
 
+from flask_sqlalchemy import SQLAlchemy
+
+from flask_migrate import Migrate
+
+db = SQLAlchemy()
+migrate = Migrate()
+
+# TU CÓDIGO EXISTENTE DESPUÉS...
 # Importar modelos principales desde el archivo base
 from app.model import User, Product, Order, OrderItem
 
