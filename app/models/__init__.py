@@ -32,6 +32,8 @@ from app.models.customer import (
 
 # Exportar todos los modelos
 __all__ = [
+    'db', 'migrate',
+    
     # Base
     'User', 'Product', 'Order', 'OrderItem',
     
