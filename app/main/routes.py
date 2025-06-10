@@ -2,7 +2,7 @@
 Rutas principales de la aplicación
 Incluye landing page y health checks
 """
-from flask import render_template, jsonify, request
+from flask import render_template, jsonify, request, make_response, redirect, url_for
 from flask_login import current_user
 from datetime import datetime
 from app.main import bp
