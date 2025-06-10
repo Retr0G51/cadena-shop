@@ -131,8 +131,7 @@ def configure_logging(app):
     
     if not app.debug and not app.testing:
         # Crear directorio de logs si no existe
-        if not os.path.exists('logs'):
-            os.mkdir('logs')
+        os.makedirs('logs', exist_ok=True)
         
         # Configurar rotating file handler
         file_handler = RotatingFileHandler(
