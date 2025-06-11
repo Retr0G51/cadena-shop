@@ -830,43 +830,6 @@ def settings():
     
     return render_template('dashboard/settings.html', form=form)
 
-# ==================== ANALYTICS Y REPORTES ====================
-
-@bp.route('/reports')
-@login_required
-@active_business_required
-def reports():
-    """Centro de reportes"""
-    
-    # Estadísticas para reportes
-    today = datetime.now().date()
-    month_start = today.replace(day=1)
-    
-    report_data = {
-        'sales_today': float(db.session.query(func.coalesce(func.sum(Order.total), 0)).filter(
-            Order.user_id == current_user.id,
-            func.date(Order.created_at) == today,
-            Order.status.in_(['confirmed', 'processing', 'shipped', 'delivered'])
-        ).scalar() or 0),
-        
-        'sales_month': float(db.session.query(func.coalesce(func.sum(Order.total), 0)).filter(
-            Order.user_id == current_user.id,
-            func.date(Order.created_at) >= month_start,
-            Order.status.in_(['confirmed', 'processing', 'shipped', 'delivered'])
-        ).scalar() or 0),
-        
-        'orders_today': Order.query.filter(
-            Order.user_id == current_user.id,
-            func.date(Order.created_at) == today
-        ).count(),
-        
-        'total_customers': db.session.query(func.count(func.distinct(Order.customer_phone))).filter(
-            Order.user_id == current_user.id
-        ).scalar() or 0
-    }
-    
-    return render_template('dashboard/reports.html', data=report_data)
-
 # ==================== UTILIDADES Y HERRAMIENTAS ====================
 
 @bp.route('/tools/backup')
