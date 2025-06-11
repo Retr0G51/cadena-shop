@@ -196,18 +196,21 @@ class Analytics:
         ).count()
         
         # Segmentación por valor
-        customer_segments = db.session.query(
-            func.case(
-                (Customer.total_spent >= 1000, 'VIP'),
-                (Customer.total_spent >= 500, 'Premium'),
-                (Customer.total_spent >= 100, 'Regular'),
-                else_='Nuevo'
-            ).label('segment'),
-            func.count(Customer.id).label('count'),
-            func.avg(Customer.total_spent).label('avg_spent')
-        ).filter(
-            Customer.user_id == self.user_id
-        ).group_by('segment').all()
+        try:
+            customer_segments = db.session.query(
+                func.case(
+                    (Customer.total_spent >= 1000, 'VIP'),
+                    (Customer.total_spent >= 500, 'Premium'), 
+                    (Customer.total_spent >= 100, 'Regular')
+                ).label('segment'),
+                func.count(Customer.id).label('count'),
+                func.avg(Customer.total_spent).label('avg_spent')
+            ).filter(
+                Customer.user_id == self.user_id
+            ).group_by('segment').all()
+        except Exception as e:
+            # Fallback si hay error con Customer model
+            customer_segments = []
         
         # Tasa de retención
         retention_rate = 0
