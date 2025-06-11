@@ -38,7 +38,7 @@
                     <div class="card">
                         <div class="card-body">
                             <h5 class="card-title text-muted">Clientes VIP</h5>
-                            <h2>{{ customers.filter_by(segment='vip').count() }}</h2>
+                            <h2>{{ vip_customers_count or 0 }}</h2>
                             <p class="mb-0">Mayor valor de compra</p>
                         </div>
                     </div>
@@ -47,7 +47,7 @@
                     <div class="card">
                         <div class="card-body">
                             <h5 class="card-title text-muted">En Riesgo</h5>
-                            <h2 class="text-warning">{{ customers.filter_by(tags__contains=['at_risk']).count() }}</h2>
+                            <h2 class="text-warning">{{ at_risk_customers_count or 0 }}</h2>
                             <p class="mb-0">Sin comprar +60 días</p>
                         </div>
                     </div>
@@ -56,7 +56,7 @@
                     <div class="card">
                         <div class="card-body">
                             <h5 class="card-title text-muted">Marketing Activo</h5>
-                            <h2>{{ customers.filter_by(accepts_marketing=true).count() }}</h2>
+                            <h2>{{ marketing_customers_count or 0 }}</h2
                             <p class="mb-0">Aceptan comunicaciones</p>
                         </div>
                     </div>
