@@ -4,65 +4,197 @@
 
 {% block extra_css %}
 <style>
-    .stat-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        transition: all 0.3s ease;
-    }
-    .stat-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    }
+    /* ==================== ESTILOS SÚPER PRO ==================== */
     .metric-card {
         background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        transition: all 0.3s ease;
-    }
-    .metric-card:hover {
-        box-shadow: 0 8px 15px rgba(0,0,0,0.1);
-    }
-    .chart-container {
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid rgba(0,0,0,0.05);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         position: relative;
-        height: 300px;
+        overflow: hidden;
     }
-    .activity-item {
-        border-left: 3px solid #e5e7eb;
-        transition: all 0.3s ease;
+    
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
-    .activity-item:hover {
-        border-left-color: #8b5cf6;
-        background-color: #f9fafb;
+    
+    .metric-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15);
     }
-    .quick-action {
-        background: linear-gradient(45deg, #667eea, #764ba2);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 12px 20px;
-        text-decoration: none;
+    
+    .metric-card:hover::before {
+        opacity: 1;
+    }
+    
+    .metric-number {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        line-height: 1;
+    }
+    
+    .growth-indicator {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 4px;
+    }
+    
+    .growth-positive {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+    }
+    
+    .growth-negative {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+    }
+    
+    .growth-neutral {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 350px;
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    
+    .activity-timeline {
+        max-height: 400px;
+        overflow-y: auto;
+        padding-right: 8px;
+    }
+    
+    .activity-item {
+        display: flex;
+        align-items: start;
+        gap: 16px;
+        padding: 16px;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        border-left: 3px solid transparent;
+        margin-bottom: 8px;
+    }
+    
+    .activity-item:hover {
+        background: #f8fafc;
+        border-left-color: #8b5cf6;
+        transform: translateX(4px);
+    }
+    
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 16px;
+    }
+    
+    .progress-ring {
+        width: 120px;
+        height: 120px;
+        position: relative;
+    }
+    
+    .progress-ring svg {
+        width: 100%;
+        height: 100%;
+        transform: rotate(-90deg);
+    }
+    
+    .progress-ring circle {
+        fill: transparent;
+        stroke-width: 8;
+        r: 50;
+        cx: 60;
+        cy: 60;
+    }
+    
+    .progress-background {
+        stroke: #e5e7eb;
+    }
+    
+    .progress-bar {
+        stroke: url(#gradient);
+        stroke-linecap: round;
+        stroke-dasharray: 314;
+        stroke-dashoffset: 314;
+        transition: stroke-dashoffset 1s ease-in-out;
+    }
+    
+    .alert-card {
+        background: white;
+        border-radius: 12px;
+        border-left: 4px solid;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        margin-bottom: 12px;
         transition: all 0.3s ease;
     }
-    .quick-action:hover {
+    
+    .alert-warning { border-left-color: #f59e0b; }
+    .alert-info { border-left-color: #3b82f6; }
+    .alert-success { border-left-color: #10b981; }
+    .alert-error { border-left-color: #ef4444; }
+    
+    .alert-card:hover {
+        transform: translateX(4px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    
+    .quick-action-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 16px 20px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .quick-action-btn:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
         color: white;
         text-decoration: none;
     }
-    .progress-bar {
-        background: linear-gradient(90deg, #667eea, #764ba2);
-        height: 8px;
-        border-radius: 4px;
-        transition: width 0.6s ease;
-    }
+    
     .notification-badge {
         background: #ef4444;
         color: white;
         border-radius: 50%;
-        width: 20px;
-        height: 20px;
+        width: 24px;
+        height: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -71,6 +203,61 @@
         position: absolute;
         top: -8px;
         right: -8px;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+    
+    .product-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 8px;
+        transition: background 0.2s ease;
+    }
+    
+    .product-item:hover {
+        background: #f8fafc;
+    }
+    
+    .product-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: #f3f4f6;
+    }
+    
+    .copy-btn {
+        transition: all 0.3s ease;
+    }
+    
+    .copy-btn.copied {
+        background: #10b981 !important;
+        transform: scale(1.05);
+    }
+    
+    /* Scrollbar personalizada */
+    .activity-timeline::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .activity-timeline::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 3px;
+    }
+    
+    .activity-timeline::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+    
+    .activity-timeline::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
     }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -78,507 +265,846 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Header con saludo personalizado -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+    
+    <!-- ==================== HEADER DINÁMICO ==================== -->
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8">
         <div>
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">
-                ¡Hola, {{ current_user.business_name.split()[0] if current_user.business_name else 'Emprendedor' }}! 👋
-            </h1>
-            <p class="text-gray-600">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">
                 {% set hour = moment().hour if moment else 12 %}
                 {% if hour < 12 %}
-                    Buenos días. Así van las cosas en tu negocio hoy.
+                    🌅 ¡Buenos días, {{ current_user.business_name.split()[0] if current_user.business_name else 'Emprendedor' }}!
                 {% elif hour < 18 %}
-                    Buenas tardes. Aquí tienes el resumen de tu negocio.
+                    ☀️ ¡Buenas tardes, {{ current_user.business_name.split()[0] if current_user.business_name else 'Emprendedor' }}!
                 {% else %}
-                    Buenas noches. Revisa cómo fue el día en tu negocio.
+                    🌙 ¡Buenas noches, {{ current_user.business_name.split()[0] if current_user.business_name else 'Emprendedor' }}!
                 {% endif %}
-            </p>
+            </h1>
+            <p class="text-xl text-gray-600">Así van las cosas en {{ current_user.business_name or 'tu negocio' }} hoy</p>
         </div>
-        <div class="flex gap-3 mt-4 md:mt-0">
+        
+        <!-- Acciones rápidas del header -->
+        <div class="flex gap-3 mt-6 lg:mt-0">
             <a href="{{ url_for('public.store', slug=current_user.slug) }}" target="_blank" 
-               class="quick-action">
+               class="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 flex items-center gap-2">
                 <i class="fas fa-external-link-alt"></i>
                 Ver Tienda
             </a>
-            <a href="{{ url_for('dashboard.new_product') }}" class="quick-action">
+            <a href="{{ url_for('dashboard.new_product') }}" 
+               class="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-300 flex items-center gap-2">
                 <i class="fas fa-plus"></i>
                 Nuevo Producto
             </a>
         </div>
     </div>
 
-    <!-- Alertas importantes -->
-    <div class="mb-6 space-y-3">
-        {% if total_products == 0 %}
-        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
-            <div class="flex items-center">
-                <i class="fas fa-exclamation-triangle text-yellow-400 mr-3"></i>
-                <div>
-                    <p class="text-yellow-800 font-medium">¡Agrega tu primer producto!</p>
-                    <p class="text-yellow-700 text-sm">Tu tienda está vacía. Necesitas productos para empezar a vender.</p>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-        
-        {% if pending_orders > 0 %}
-        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+    <!-- ==================== ALERTAS INTELIGENTES ==================== -->
+    {% if alerts %}
+    <div class="mb-8">
+        {% for alert in alerts %}
+        <div class="alert-card alert-{{ alert.type }} p-4">
             <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <i class="fas fa-bell text-blue-400 mr-3"></i>
+                <div class="flex items-center gap-3">
+                    {% if alert.type == 'warning' %}
+                    <i class="fas fa-exclamation-triangle text-yellow-500 text-xl"></i>
+                    {% elif alert.type == 'info' %}
+                    <i class="fas fa-info-circle text-blue-500 text-xl"></i>
+                    {% elif alert.type == 'success' %}
+                    <i class="fas fa-check-circle text-green-500 text-xl"></i>
+                    {% else %}
+                    <i class="fas fa-bell text-gray-500 text-xl"></i>
+                    {% endif %}
                     <div>
-                        <p class="text-blue-800 font-medium">Tienes {{ pending_orders }} pedidos pendientes</p>
-                        <p class="text-blue-700 text-sm">Revisa y procesa los pedidos nuevos.</p>
+                        <h4 class="font-semibold text-gray-800">{{ alert.title }}</h4>
+                        <p class="text-gray-600 text-sm">{{ alert.message }}</p>
                     </div>
                 </div>
-                <a href="{{ url_for('dashboard.orders') }}" class="text-blue-600 hover:text-blue-800 font-medium">
-                    Ver pedidos →
+                {% if alert.action_url %}
+                <a href="{{ alert.action_url }}" class="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition text-sm font-medium">
+                    {{ alert.action_text }}
                 </a>
+                {% endif %}
             </div>
         </div>
-        {% endif %}
+        {% endfor %}
     </div>
+    {% endif %}
 
-    <!-- Métricas principales -->
+    <!-- ==================== MÉTRICAS PRINCIPALES ==================== -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        
+        <!-- Ventas de Hoy -->
         <div class="metric-card p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Ventas Hoy</p>
-                    <p class="text-2xl font-bold text-gray-900" data-metric="today_sales">${{ today_sales or 0 }}</p>
-                    <p class="text-xs text-green-600 flex items-center mt-1">
-                        <i class="fas fa-arrow-up mr-1"></i>
-                        +{{ today_growth or 0 }}% vs ayer
-                    </p>
-                </div>
+            <div class="flex items-center justify-between mb-4">
                 <div class="p-3 bg-green-100 rounded-full">
                     <i class="fas fa-dollar-sign text-green-600 text-xl"></i>
                 </div>
+                <span class="growth-indicator {{ 'growth-positive' if today_growth > 0 else ('growth-negative' if today_growth < 0 else 'growth-neutral') }}">
+                    {% if today_growth > 0 %}
+                        <i class="fas fa-arrow-up"></i> +{{ today_growth }}%
+                    {% elif today_growth < 0 %}
+                        <i class="fas fa-arrow-down"></i> {{ today_growth }}%
+                    {% else %}
+                        <i class="fas fa-minus"></i> {{ today_growth }}%
+                    {% endif %}
+                </span>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-600 mb-1">Ventas Hoy</p>
+                <p class="metric-number" data-metric="today_sales">${{ today_sales }}</p>
+                <p class="text-xs text-gray-500 mt-2">vs ayer: ${{ yesterday_sales or 0 }}</p>
             </div>
         </div>
 
+        <!-- Pedidos de Hoy -->
         <div class="metric-card p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Pedidos Hoy</p>
-                    <p class="text-2xl font-bold text-gray-900" data-metric="today_orders">{{ today_orders or 0 }}</p>
-                    <p class="text-xs text-blue-600 flex items-center mt-1">
-                        <i class="fas fa-shopping-cart mr-1"></i>
-                        {{ pending_orders or 0 }} pendientes
-                    </p>
-                </div>
+            <div class="flex items-center justify-between mb-4">
                 <div class="p-3 bg-blue-100 rounded-full">
                     <i class="fas fa-shopping-cart text-blue-600 text-xl"></i>
                 </div>
+                {% if pending_orders > 0 %}
+                <div class="relative">
+                    <i class="fas fa-bell text-blue-600"></i>
+                    <span class="notification-badge">{{ pending_orders }}</span>
+                </div>
+                {% endif %}
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-600 mb-1">Pedidos Hoy</p>
+                <p class="metric-number" data-metric="today_orders">{{ today_orders }}</p>
+                <p class="text-xs text-gray-500 mt-2">{{ pending_orders }} pendientes</p>
             </div>
         </div>
 
+        <!-- Clientes -->
         <div class="metric-card p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Productos</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ total_products or 0 }}</p>
-                    <p class="text-xs text-purple-600 flex items-center mt-1">
-                        <i class="fas fa-eye mr-1"></i>
-                        {{ products_views or 0 }} vistas
-                    </p>
-                </div>
+            <div class="flex items-center justify-between mb-4">
                 <div class="p-3 bg-purple-100 rounded-full">
-                    <i class="fas fa-box text-purple-600 text-xl"></i>
+                    <i class="fas fa-users text-purple-600 text-xl"></i>
                 </div>
+                <span class="growth-indicator growth-positive">
+                    <i class="fas fa-user-plus"></i> {{ new_customers }}
+                </span>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-600 mb-1">Clientes Totales</p>
+                <p class="metric-number">{{ customers_count }}</p>
+                <p class="text-xs text-gray-500 mt-2">{{ new_customers }} nuevos esta semana</p>
             </div>
         </div>
 
+        <!-- Productos -->
         <div class="metric-card p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Clientes</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ customers_count or 0 }}</p>
-                    <p class="text-xs text-indigo-600 flex items-center mt-1">
-                        <i class="fas fa-users mr-1"></i>
-                        {{ new_customers or 0 }} nuevos
-                    </p>
-                </div>
+            <div class="flex items-center justify-between mb-4">
                 <div class="p-3 bg-indigo-100 rounded-full">
-                    <i class="fas fa-users text-indigo-600 text-xl"></i>
+                    <i class="fas fa-box text-indigo-600 text-xl"></i>
                 </div>
+                {% if low_stock_products > 0 %}
+                <span class="growth-indicator growth-negative">
+                    <i class="fas fa-exclamation-triangle"></i> {{ low_stock_products }}
+                </span>
+                {% else %}
+                <span class="growth-indicator growth-positive">
+                    <i class="fas fa-check"></i> OK
+                </span>
+                {% endif %}
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-600 mb-1">Productos Activos</p>
+                <p class="metric-number">{{ active_products }}</p>
+                <p class="text-xs text-gray-500 mt-2">{{ total_products }} total</p>
             </div>
         </div>
     </div>
 
-    <!-- Gráficos y análisis -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Gráfico de ventas -->
-        <div class="metric-card p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-800">Ventas de los últimos 7 días</h3>
+    <!-- ==================== GRÁFICOS Y ANÁLISIS ==================== -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        
+        <!-- Gráfico de Ventas -->
+        <div class="chart-container">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800">📈 Ventas Últimos 7 Días</h3>
                 <div class="flex gap-2">
-                    <button onclick="changeChart('7d')" class="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-md">7D</button>
-                    <button onclick="changeChart('30d')" class="px-3 py-1 text-sm text-gray-600 rounded-md">30D</button>
+                    <button onclick="changeChartPeriod('7d')" class="chart-period-btn active px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-md font-medium">7D</button>
+                    <button onclick="changeChartPeriod('30d')" class="chart-period-btn px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-md font-medium">30D</button>
                 </div>
             </div>
-            <div class="chart-container">
-                <canvas id="salesChart"></canvas>
-            </div>
+            <canvas id="salesChart"></canvas>
         </div>
 
-        <!-- Productos más vendidos -->
+        <!-- Productos Más Vendidos -->
         <div class="metric-card p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Productos más vendidos</h3>
-            <div class="space-y-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-6">🏆 Productos Más Vendidos</h3>
+            
+            <div class="space-y-3">
                 {% for product in top_products[:5] %}
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        {% if product.image %}
-                        <img src="{{ url_for('static', filename='uploads/products/' + product.image) }}" alt="{{ product.name }}" class="w-10 h-10 rounded-lg object-cover mr-3">
-                        {% else %}
-                        <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center mr-3">
-                            <i class="fas fa-image text-gray-400"></i>
-                        </div>
-                        {% endif %}
-                        <div>
-                            <p class="font-medium text-gray-800">{{ product.name }}</p>
-                            <p class="text-sm text-gray-600">${{ product.price }}</p>
-                        </div>
+                <div class="product-item">
+                    {% if product.image %}
+                    <img src="{{ url_for('static', filename='uploads/products/' + product.image) }}" 
+                         alt="{{ product.name }}" class="product-avatar">
+                    {% else %}
+                    <div class="product-avatar flex items-center justify-center">
+                        <i class="fas fa-image text-gray-400"></i>
                     </div>
+                    {% endif %}
+                    
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-gray-800">{{ product.name }}</h4>
+                        <p class="text-sm text-gray-600">${{ product.price }}</p>
+                    </div>
+                    
                     <div class="text-right">
-                        <p class="font-semibold text-gray-800">{{ product.sales_count or 0 }}</p>
-                        <p class="text-xs text-gray-600">vendidos</p>
+                        <div class="font-bold text-gray-800">{{ product.units_sold or 0 }}</div>
+                        <div class="text-xs text-gray-500">vendidos</div>
                     </div>
                 </div>
                 {% endfor %}
                 
                 {% if not top_products %}
-                <div class="text-center py-8">
-                    <i class="fas fa-chart-bar text-gray-300 text-4xl mb-3"></i>
-                    <p class="text-gray-500">No hay datos de ventas aún</p>
+                <div class="text-center py-12">
+                    <i class="fas fa-chart-bar text-gray-300 text-5xl mb-4"></i>
+                    <p class="text-gray-500 text-lg">No hay datos de ventas aún</p>
+                    <p class="text-gray-400 text-sm">Los productos aparecerán aquí cuando tengas ventas</p>
                 </div>
                 {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Actividad reciente y acciones rápidas -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Actividad reciente -->
+    <!-- ==================== ACTIVIDAD Y ACCIONES ==================== -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        
+        <!-- Actividad Reciente -->
         <div class="lg:col-span-2 metric-card p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-800">Actividad Reciente</h3>
-                <a href="{{ url_for('dashboard.orders') }}" class="text-purple-600 hover:text-purple-800 text-sm font-medium">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800">⚡ Actividad Reciente</h3>
+                <a href="{{ url_for('dashboard.orders') }}" class="text-purple-600 hover:text-purple-800 font-medium text-sm">
                     Ver todo →
                 </a>
             </div>
             
-            <div class="space-y-4">
-                {% for activity in recent_activities[:8] %}
-                <div class="activity-item pl-4 py-3 rounded-lg">
-                    <div class="flex items-start justify-between">
-                        <div class="flex items-start">
-                            <div class="p-2 rounded-full mr-3 
-                                {% if activity.type == 'order' %}bg-green-100{% endif %}
-                                {% if activity.type == 'product' %}bg-blue-100{% endif %}
-                                {% if activity.type == 'customer' %}bg-purple-100{% endif %}">
-                                {% if activity.type == 'order' %}
-                                <i class="fas fa-shopping-cart text-green-600 text-sm"></i>
-                                {% elif activity.type == 'product' %}
-                                <i class="fas fa-box text-blue-600 text-sm"></i>
-                                {% elif activity.type == 'customer' %}
-                                <i class="fas fa-user text-purple-600 text-sm"></i>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <p class="font-medium text-gray-800">{{ activity.title }}</p>
-                                <p class="text-sm text-gray-600">{{ activity.description }}</p>
-                            </div>
+            <div class="activity-timeline">
+                {% for activity in recent_activities %}
+                <div class="activity-item">
+                    <div class="activity-icon" style="background: {{ 'rgba(16, 185, 129, 0.1)' if activity.type == 'order' else 'rgba(59, 130, 246, 0.1)' }};">
+                        <i class="{{ activity.icon }}"></i>
+                    </div>
+                    
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-1">
+                            <h4 class="font-semibold text-gray-800">{{ activity.title }}</h4>
+                            <span class="text-xs text-gray-500">{{ activity.time_ago }}</span>
                         </div>
-                        <span class="text-xs text-gray-500">{{ activity.time_ago }}</span>
+                        <p class="text-gray-600 text-sm">{{ activity.description }}</p>
+                        {% if activity.link and activity.link != '#' %}
+                        <a href="{{ activity.link }}" class="text-purple-600 hover:text-purple-800 text-xs font-medium mt-1 inline-block">
+                            Ver detalles →
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
                 
                 {% if not recent_activities %}
-                <div class="text-center py-8">
-                    <i class="fas fa-clock text-gray-300 text-4xl mb-3"></i>
-                    <p class="text-gray-500">No hay actividad reciente</p>
-                    <p class="text-sm text-gray-400">La actividad aparecerá aquí cuando tengas pedidos</p>
+                <div class="text-center py-12">
+                    <i class="fas fa-clock text-gray-300 text-5xl mb-4"></i>
+                    <p class="text-gray-500 text-lg">No hay actividad reciente</p>
+                    <p class="text-gray-400 text-sm">La actividad aparecerá aquí cuando tengas pedidos</p>
                 </div>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Panel de acciones rápidas -->
-        <div class="metric-card p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Acciones Rápidas</h3>
+        <!-- Panel de Acciones y Meta -->
+        <div class="space-y-6">
             
-            <div class="space-y-3">
-                <a href="{{ url_for('dashboard.new_product') }}" 
-                   class="w-full flex items-center p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition">
-                    <i class="fas fa-plus-circle text-purple-600 mr-3"></i>
-                    <span class="font-medium text-purple-800">Agregar Producto</span>
-                </a>
+            <!-- Acciones Rápidas -->
+            <div class="metric-card p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">🚀 Acciones Rápidas</h3>
                 
-                <a href="{{ url_for('dashboard.orders') }}" 
-                   class="w-full flex items-center p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition relative">
-                    <i class="fas fa-list text-blue-600 mr-3"></i>
-                    <span class="font-medium text-blue-800">Gestionar Pedidos</span>
-                    {% if pending_orders > 0 %}
-                    <span class="notification-badge">{{ pending_orders }}</span>
+                <div class="space-y-3">
+                    <a href="{{ url_for('dashboard.new_product') }}" class="quick-action-btn">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-plus-circle"></i>
+                            <span>Agregar Producto</span>
+                        </div>
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
+                    
+                    <a href="{{ url_for('dashboard.orders') }}" class="quick-action-btn relative">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-list"></i>
+                            <span>Gestionar Pedidos</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            {% if pending_orders > 0 %}
+                            <span class="notification-badge position-static">{{ pending_orders }}</span>
+                            {% endif %}
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </a>
+                    
+                    <a href="{{ url_for('dashboard.customers') }}" class="quick-action-btn">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-users"></i>
+                            <span>Ver Clientes</span>
+                        </div>
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
+                    
+                    {% if 'dashboard.analytics' in url_map %}
+                    <a href="{{ url_for('dashboard.analytics') }}" class="quick-action-btn">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Analytics</span>
+                        </div>
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
                     {% endif %}
-                </a>
-                
-                <a href="{{ url_for('dashboard.products') }}" 
-                   class="w-full flex items-center p-3 bg-green-50 hover:bg-green-100 rounded-lg transition">
-                    <i class="fas fa-box text-green-600 mr-3"></i>
-                    <span class="font-medium text-green-800">Ver Productos</span>
-                </a>
-                
-                <a href="{{ url_for('dashboard.settings') }}" 
-                   class="w-full flex items-center p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition">
-                    <i class="fas fa-cog text-gray-600 mr-3"></i>
-                    <span class="font-medium text-gray-800">Configuración</span>
-                </a>
+                </div>
             </div>
 
-            <!-- Meta del mes -->
-            <div class="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
-                <h4 class="font-semibold text-gray-800 mb-2">Meta del Mes</h4>
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm text-gray-600">Ventas</span>
-                    <span class="text-sm font-medium">${{ monthly_sales or 0 }} / ${{ monthly_goal or 10000 }}</span>
+            <!-- Meta Mensual -->
+            <div class="metric-card p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">🎯 Meta del Mes</h3>
+                
+                <div class="flex items-center justify-center mb-4">
+                    <div class="progress-ring">
+                        <svg>
+                            <defs>
+                                <linearGradient id="gradient">
+                                    <stop offset="0%" stop-color="#667eea"/>
+                                    <stop offset="100%" stop-color="#764ba2"/>
+                                </linearGradient>
+                            </defs>
+                            <circle class="progress-background"/>
+                            <circle class="progress-bar" style="stroke-dashoffset: {{ 314 - (goal_progress * 314 / 100) }};"/>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-gray-800">{{ goal_progress }}%</div>
+                                <div class="text-xs text-gray-600">completado</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-2">
-                    {% set progress = ((monthly_sales / monthly_goal * 100) if monthly_goal else 0) %}
-                    <div class="progress-bar" style="width: {{ progress }}%"></div>
+                
+                <div class="text-center mb-4">
+                    <div class="text-sm text-gray-600 mb-1">Ventas del mes</div>
+                    <div class="text-xl font-bold text-gray-800">${{ monthly_sales }} / ${{ monthly_goal }}</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        Faltan ${{ monthly_goal - monthly_sales }} para la meta
+                    </div>
                 </div>
-                <p class="text-xs text-gray-600 mt-1">
-                    {{ progress|round }}% completado
-                </p>
+                
+                {% if monthly_growth > 0 %}
+                <div class="text-center">
+                    <span class="growth-indicator growth-positive">
+                        <i class="fas fa-arrow-up"></i> +{{ monthly_growth }}% vs mes anterior
+                    </span>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Tu URL de Tienda -->
-    <div class="mt-8 bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold mb-4">Tu URL de Tienda</h2>
+    <!-- ==================== MÉTRICAS ADICIONALES ==================== -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        
+        <!-- Ticket Promedio -->
+        <div class="metric-card p-6 text-center">
+            <div class="p-3 bg-yellow-100 rounded-full inline-flex mb-4">
+                <i class="fas fa-receipt text-yellow-600 text-xl"></i>
+            </div>
+            <div class="metric-number text-2xl">${{ avg_order_value }}</div>
+            <p class="text-sm text-gray-600 mt-1">Ticket Promedio</p>
+        </div>
+
+        <!-- Tasa de Retención -->
+        <div class="metric-card p-6 text-center">
+            <div class="p-3 bg-pink-100 rounded-full inline-flex mb-4">
+                <i class="fas fa-sync text-pink-600 text-xl"></i>
+            </div>
+            <div class="metric-number text-2xl">{{ retention_rate }}%</div>
+            <p class="text-sm text-gray-600 mt-1">Tasa de Retención</p>
+        </div>
+
+        <!-- Conversión -->
+        <div class="metric-card p-6 text-center">
+            <div class="p-3 bg-teal-100 rounded-full inline-flex mb-4">
+                <i class="fas fa-percentage text-teal-600 text-xl"></i>
+            </div>
+            <div class="metric-number text-2xl">{{ conversion_rate }}%</div>
+            <p class="text-sm text-gray-600 mt-1">Tasa de Conversión</p>
+        </div>
+    </div>
+
+    <!-- ==================== URL DE TIENDA ==================== -->
+    <div class="metric-card p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-800">🔗 Tu URL de Tienda</h3>
+            <span class="text-sm text-gray-500">{{ products_views }} vistas totales</span>
+        </div>
+        
         <div class="bg-gray-50 p-4 rounded-lg">
-            <p class="text-sm text-gray-600 mb-2">Comparte este enlace con tus clientes:</p>
-            <div class="flex items-center space-x-2">
-                <input type="text" value="{{ url_for('public.store', slug=current_user.slug, _external=True) }}" 
-                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" readonly>
-                <button onclick="copyToClipboard(this)" data-url="{{ url_for('public.store', slug=current_user.slug, _external=True) }}" 
-                        class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition">
-                    <i class="fas fa-copy"></i>
+            <p class="text-sm text-gray-600 mb-3">Comparte este enlace con tus clientes para que puedan ver tu catálogo:</p>
+            <div class="flex items-center gap-3">
+                <input type="text" 
+                       id="store-url"
+                       value="{{ url_for('public.store', slug=current_user.slug, _external=True) }}" 
+                       class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-sm bg-white" 
+                       readonly>
+                <button onclick="copyStoreUrl()" 
+                        id="copy-btn"
+                        class="copy-btn px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium">
+                    <i class="fas fa-copy mr-2"></i>
+                    Copiar
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Recent Orders -->
+    <!-- ==================== ÚLTIMOS PEDIDOS ==================== -->
     {% if recent_orders %}
-    <div class="mt-8 bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold mb-4">Pedidos Recientes</h2>
+    <div class="metric-card p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-gray-800">📋 Últimos Pedidos</h3>
+            <a href="{{ url_for('dashboard.orders') }}" class="text-purple-600 hover:text-purple-800 font-medium">
+                Ver todos →
+            </a>
+        </div>
+        
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="min-w-full">
                 <thead>
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            # Pedido
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Cliente
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Total
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Estado
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Fecha
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Acciones
-                        </th>
+                    <tr class="border-b">
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Pedido</th>
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Cliente</th>
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Total</th>
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Estado</th>
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Fecha</th>
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Acciones</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody>
                     {% for order in recent_orders %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            #{{ order.id }}
+                    <tr class="border-b hover:bg-gray-50 transition">
+                        <td class="py-3 px-4">
+                            <span class="font-medium text-gray-800">#{{ order.id }}</span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm font-medium text-gray-900">{{ order.customer_name or 'Cliente' }}</div>
-                            <div class="text-sm text-gray-500">{{ order.customer_phone }}</div>
+                        <td class="py-3 px-4">
+                            <div>
+                                <div class="font-medium text-gray-800">{{ order.customer_name or 'Cliente' }}</div>
+                                <div class="text-sm text-gray-500">{{ order.customer_phone }}</div>
+                            </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${{ order.total }}
+                        <td class="py-3 px-4">
+                            <span class="font-semibold text-gray-800">${{ order.total }}</span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="py-3 px-4">
                             {% if order.status == 'pending' %}
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
                                     Pendiente
                                 </span>
                             {% elif order.status == 'confirmed' %}
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                                     Confirmado
                                 </span>
+                            {% elif order.status == 'processing' %}
+                                <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                                    Preparando
+                                </span>
+                            {% elif order.status == 'shipped' %}
+                                <span class="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                                    Enviado
+                                </span>
                             {% elif order.status == 'delivered' %}
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
                                     Entregado
                                 </span>
-                            {% else %}
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                    {{ order.status|title }}
+                            {% elif order.status == 'cancelled' %}
+                                <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                                    Cancelado
                                 </span>
                             {% endif %}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ order.created_at.strftime('%d/%m/%Y %H:%M') }}
+                        <td class="py-3 px-4">
+                            <span class="text-sm text-gray-600">{{ order.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td class="py-3 px-4">
                             <a href="{{ url_for('dashboard.order_detail', order_id=order.id) }}" 
-                               class="text-purple-600 hover:text-purple-900">Ver</a>
+                               class="text-purple-600 hover:text-purple-800 font-medium text-sm">
+                                Ver
+                            </a>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        <div class="mt-4 text-center">
-            <a href="{{ url_for('dashboard.orders') }}" 
-               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200">
-                Ver todos los pedidos
-                <i class="fas fa-arrow-right ml-2"></i>
-            </a>
-        </div>
     </div>
     {% endif %}
-
-    <!-- Tips y sugerencias -->
-    <div class="mt-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg p-6 text-white">
-        <div class="flex items-start justify-between">
-            <div>
-                <h3 class="text-lg font-semibold mb-2">💡 Tip del día</h3>
-                <p class="text-purple-100 mb-3">
-                    {% set tips = [
-                        "Agrega fotos de alta calidad a tus productos para aumentar las ventas.",
-                        "Responde rápido a los mensajes de WhatsApp para mejorar la confianza.",
-                        "Ofrece descuentos por compras múltiples para aumentar el ticket promedio.",
-                        "Actualiza regularmente tu inventario para evitar pedidos de productos agotados.",
-                        "Usa descripciones detalladas en tus productos para reducir dudas del cliente."
-                    ] %}
-                    {{ tips[range(0, tips|length)|random] }}
-                </p>
-                <a href="#" class="inline-flex items-center text-sm text-purple-200 hover:text-white">
-                    Más consejos para vender →
-                </a>
-            </div>
-            <i class="fas fa-lightbulb text-yellow-300 text-2xl"></i>
-        </div>
-    </div>
 </div>
 
+<!-- ==================== JAVASCRIPT SÚPER PRO ==================== -->
 <script>
-// Configurar gráfico de ventas
-const ctx = document.getElementById('salesChart').getContext('2d');
-const salesChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: {{ sales_labels|safe }},
-        datasets: [{
-            label: 'Ventas ($)',
-            data: {{ sales_data|safe }},
-            borderColor: 'rgb(102, 126, 234)',
-            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-            borderWidth: 3,
-            fill: true,
-            tension: 0.4
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                grid: {
-                    color: 'rgba(0,0,0,0.05)'
-                }
-            },
-            x: {
-                grid: {
-                    display: false
-                }
-            }
-        },
-        elements: {
-            point: {
-                radius: 4,
-                hoverRadius: 6
-            }
-        }
-    }
+// Variables globales
+let salesChart;
+let currentPeriod = '7d';
+
+// ==================== INICIALIZACIÓN ==================== 
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSalesChart();
+    startLiveUpdates();
+    initializeAnimations();
 });
 
-function changeChart(period) {
-    // Cambiar período del gráfico
-    fetch(`/dashboard/chart-data?period=${period}`)
+// ==================== GRÁFICO DE VENTAS ==================== 
+function initializeSalesChart() {
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    
+    // Configuración del gráfico
+    salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ sales_labels|safe }},
+            datasets: [{
+                label: 'Ventas ($)',
+                data: {{ sales_data|safe }},
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#667eea',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    borderColor: '#667eea',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    displayColors: false,
+                    callbacks: {
+                        title: function(context) {
+                            return 'Ventas del ' + context[0].label;
+                        },
+                        label: function(context) {
+                            return ' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0,0,0,0.05)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return ' + value.toLocaleString();
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            elements: {
+                point: {
+                    hoverBackgroundColor: '#764ba2'
+                }
+            },
+            animation: {
+                duration: 2000,
+                easing: 'easeInOutQuart'
+            }
+        }
+    });
+}
+
+// ==================== CAMBIO DE PERÍODO DEL GRÁFICO ==================== 
+function changeChartPeriod(period) {
+    currentPeriod = period;
+    
+    // Actualizar botones
+    document.querySelectorAll('.chart-period-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-purple-100', 'text-purple-700');
+        btn.classList.add('text-gray-600', 'hover:bg-gray-100');
+    });
+    
+    event.target.classList.remove('text-gray-600', 'hover:bg-gray-100');
+    event.target.classList.add('active', 'bg-purple-100', 'text-purple-700');
+    
+    // Cargar nuevos datos
+    fetch(`/dashboard/api/chart-data?type=sales&period=${period}`)
         .then(response => response.json())
         .then(data => {
             salesChart.data.labels = data.labels;
             salesChart.data.datasets[0].data = data.data;
-            salesChart.update();
+            salesChart.update('active');
+        })
+        .catch(error => {
+            console.error('Error loading chart data:', error);
+            showNotification('Error al cargar los datos del gráfico', 'error');
         });
+}
+
+// ==================== COPIAR URL DE TIENDA ==================== 
+function copyStoreUrl() {
+    const urlInput = document.getElementById('store-url');
+    const copyBtn = document.getElementById('copy-btn');
     
-    // Actualizar botones activos
-    document.querySelectorAll('button[onclick*="changeChart"]').forEach(btn => {
-        btn.classList.remove('bg-purple-100', 'text-purple-700');
-        btn.classList.add('text-gray-600');
-    });
-    event.target.classList.add('bg-purple-100', 'text-purple-700');
-    event.target.classList.remove('text-gray-600');
-}
-
-// Función para copiar URL
-function copyToClipboard(button) {
-    const url = button.dataset.url;
-    navigator.clipboard.writeText(url).then(() => {
-        const originalIcon = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-check"></i>';
-        button.classList.add('bg-green-600');
-        button.classList.remove('bg-purple-600');
+    urlInput.select();
+    urlInput.setSelectionRange(0, 99999); // Para móviles
+    
+    navigator.clipboard.writeText(urlInput.value).then(() => {
+        // Cambiar apariencia del botón
+        copyBtn.innerHTML = '<i class="fas fa-check mr-2"></i>¡Copiado!';
+        copyBtn.classList.add('copied');
         
+        // Volver al estado original después de 2 segundos
         setTimeout(() => {
-            button.innerHTML = originalIcon;
-            button.classList.remove('bg-green-600');
-            button.classList.add('bg-purple-600');
+            copyBtn.innerHTML = '<i class="fas fa-copy mr-2"></i>Copiar';
+            copyBtn.classList.remove('copied');
         }, 2000);
+        
+        showNotification('URL copiada al portapapeles', 'success');
+    }).catch(err => {
+        console.error('Error copying URL:', err);
+        showNotification('Error al copiar la URL', 'error');
     });
 }
 
-// Actualizar métricas en tiempo real (cada 5 minutos)
-setInterval(() => {
-    fetch('/dashboard/live-metrics')
+// ==================== ACTUALIZACIONES EN TIEMPO REAL ==================== 
+function startLiveUpdates() {
+    // Actualizar métricas cada 2 minutos
+    setInterval(updateLiveMetrics, 120000);
+    
+    // Primera actualización después de 10 segundos
+    setTimeout(updateLiveMetrics, 10000);
+}
+
+function updateLiveMetrics() {
+    fetch('/dashboard/api/live-metrics')
         .then(response => response.json())
         .then(data => {
-            // Actualizar métricas sin recargar la página
-            if (data.today_sales !== undefined) {
-                const element = document.querySelector('[data-metric="today_sales"]');
-                if (element) element.textContent = `${data.today_sales}`;
+            // Actualizar ventas de hoy
+            const todaySalesElement = document.querySelector('[data-metric="today_sales"]');
+            if (todaySalesElement && data.today_sales !== undefined) {
+                animateNumber(todaySalesElement, parseFloat(todaySalesElement.textContent.replace(', '').replace(',', '')), data.today_sales);
             }
-            if (data.today_orders !== undefined) {
-                const element = document.querySelector('[data-metric="today_orders"]');
-                if (element) element.textContent = data.today_orders;
+            
+            // Actualizar pedidos de hoy
+            const todayOrdersElement = document.querySelector('[data-metric="today_orders"]');
+            if (todayOrdersElement && data.today_orders !== undefined) {
+                animateNumber(todayOrdersElement, parseInt(todayOrdersElement.textContent), data.today_orders);
             }
+            
+            // Actualizar notificaciones de pedidos pendientes
+            if (data.pending_orders !== undefined) {
+                updatePendingOrdersBadges(data.pending_orders);
+            }
+            
+            console.log('Métricas actualizadas:', data.timestamp);
         })
-        .catch(err => console.log('Error updating metrics:', err));
-}, 300000); // 5 minutos
+        .catch(error => {
+            console.error('Error updating live metrics:', error);
+        });
+}
+
+// ==================== ANIMACIONES ==================== 
+function animateNumber(element, from, to, prefix = ') {
+    const duration = 1000;
+    const steps = 60;
+    const stepValue = (to - from) / steps;
+    const stepDuration = duration / steps;
+    let current = from;
+    
+    const timer = setInterval(() => {
+        current += stepValue;
+        if ((stepValue > 0 && current >= to) || (stepValue < 0 && current <= to)) {
+            current = to;
+            clearInterval(timer);
+        }
+        
+        const displayValue = prefix === ' ? 
+            prefix + Math.round(current).toLocaleString() : 
+            Math.round(current).toString();
+            
+        element.textContent = displayValue;
+    }, stepDuration);
+}
+
+function initializeAnimations() {
+    // Animar métricas al cargar
+    const metricNumbers = document.querySelectorAll('.metric-number');
+    
+    metricNumbers.forEach((element, index) => {
+        setTimeout(() => {
+            element.style.opacity = '0';
+            element.style.transform = 'translateY(20px)';
+            element.style.transition = 'all 0.6s ease';
+            
+            setTimeout(() => {
+                element.style.opacity = '1';
+                element.style.transform = 'translateY(0)';
+            }, 100);
+        }, index * 200);
+    });
+    
+    // Animar cards al hacer scroll
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    });
+    
+    document.querySelectorAll('.metric-card').forEach(card => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
+        card.style.transition = 'all 0.6s ease';
+        observer.observe(card);
+    });
+}
+
+function updatePendingOrdersBadges(count) {
+    const badges = document.querySelectorAll('.notification-badge');
+    badges.forEach(badge => {
+        if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    });
+}
+
+// ==================== NOTIFICACIONES ==================== 
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-6 py-4 rounded-lg text-white z-50 shadow-lg transition-all duration-300 ${
+        type === 'error' ? 'bg-red-500' : 
+        type === 'success' ? 'bg-green-500' : 
+        type === 'warning' ? 'bg-yellow-500' :
+        'bg-blue-500'
+    }`;
+    
+    notification.innerHTML = `
+        <div class="flex items-center gap-3">
+            <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : type === 'warning' ? 'exclamation' : 'info'}-circle"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Animación de entrada
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)';
+        notification.style.opacity = '1';
+    }, 100);
+    
+    // Remover después de 4 segundos
+    setTimeout(() => {
+        notification.style.transform = 'translateX(100%)';
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 4000);
+}
+
+// ==================== ACCIONES RÁPIDAS ==================== 
+function quickAction(action) {
+    fetch('/dashboard/api/quick-actions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: action })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // Actualizar métricas si es necesario
+            if (action === 'mark_all_delivered') {
+                setTimeout(updateLiveMetrics, 1000);
+            }
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error al ejecutar la acción', 'error');
+    });
+}
+
+// ==================== FUNCIONES DE UTILIDAD ==================== 
+function formatCurrency(amount) {
+    return ' + amount.toLocaleString();
+}
+
+function formatNumber(number) {
+    return number.toLocaleString();
+}
+
+// ==================== KEYBOARD SHORTCUTS ==================== 
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + N = Nuevo producto
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        window.location.href = '{{ url_for("dashboard.new_product") }}';
+    }
+    
+    // Ctrl/Cmd + O = Ver pedidos
+    if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+        e.preventDefault();
+        window.location.href = '{{ url_for("dashboard.orders") }}';
+    }
+    
+    // Ctrl/Cmd + U = Copiar URL de tienda
+    if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+        e.preventDefault();
+        copyStoreUrl();
+    }
+});
+
+// ==================== MANEJO DE ERRORES GLOBAL ==================== 
+window.addEventListener('error', function(e) {
+    console.error('JavaScript Error:', e);
+});
+
+// ==================== MODO OFFLINE ==================== 
+window.addEventListener('online', function() {
+    showNotification('Conexión restaurada', 'success');
+    updateLiveMetrics();
+});
+
+window.addEventListener('offline', function() {
+    showNotification('Sin conexión a internet', 'warning');
+});
 </script>
 {% endblock %}
