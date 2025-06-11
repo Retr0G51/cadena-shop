@@ -441,13 +441,20 @@ def customers():
         Customer.user_id == current_user.id,
         Customer.created_at >= datetime.utcnow() - timedelta(days=30)
     ).count()
+
+    vip_customers_count = len([c for c in filtered_customers if c['type'] == 'vip'])
+    at_risk_customers_count = 0  # Placeholder por ahora
+    marketing_customers_count = 0  # Placeholder por ahora
     
     return render_template('dashboard/customers.html',
         customers=customers,
         search=search,
         segment=segment,
         total_customers=total_customers,
-        new_customers=new_customers
+        new_customers=new_customers,
+        vip_customers_count=vip_customers_count,
+        at_risk_customers_count=at_risk_customers_count,
+        marketing_customers_count=marketing_customers_count             
     )
 
 @bp.route('/customers/<int:customer_id>')
