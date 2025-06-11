@@ -17,6 +17,7 @@ from app.models.invoice import Invoice, InvoiceSeries, InvoiceItem, InvoicePayme
 from app.models.inventory import Warehouse, StockItem, InventoryMovement, StockAlert, PurchaseOrder
 from app.models.customer import Customer, CustomerGroup, CustomerInteraction, MarketingCampaign
 from app.utils.decorators import business_required, active_business_required
+from sqlalchemy import func, desc, and_, or_
 
 # ==================== ANALYTICS ROUTES ====================
 
