@@ -1,118 +1,382 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}Dashboard - {{ current_user.business_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        transition: all 0.3s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    .metric-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+    .metric-card:hover {
+        box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    .activity-item {
+        border-left: 3px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+    .activity-item:hover {
+        border-left-color: #8b5cf6;
+        background-color: #f9fafb;
+    }
+    .quick-action {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 20px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+    }
+    .quick-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+    .progress-bar {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        height: 8px;
+        border-radius: 4px;
+        transition: width 0.6s ease;
+    }
+    .notification-badge {
+        background: #ef4444;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+        position: absolute;
+        top: -8px;
+        right: -8px;
+    }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Header -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-800">
-            Bienvenido!, {{ current_user.business_name }}!
-        </h1>
-        <p class="text-gray-600 mt-2">Aquí tienes un resumen de tu negocio</p>
+    <!-- Header con saludo personalizado -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                ¡Hola, {{ current_user.business_name.split()[0] if current_user.business_name else 'Emprendedor' }}! 👋
+            </h1>
+            <p class="text-gray-600">
+                {% set hour = moment().hour if moment else 12 %}
+                {% if hour < 12 %}
+                    Buenos días. Así van las cosas en tu negocio hoy.
+                {% elif hour < 18 %}
+                    Buenas tardes. Aquí tienes el resumen de tu negocio.
+                {% else %}
+                    Buenas noches. Revisa cómo fue el día en tu negocio.
+                {% endif %}
+            </p>
+        </div>
+        <div class="flex gap-3 mt-4 md:mt-0">
+            <a href="{{ url_for('public.store', slug=current_user.slug) }}" target="_blank" 
+               class="quick-action">
+                <i class="fas fa-external-link-alt"></i>
+                Ver Tienda
+            </a>
+            <a href="{{ url_for('dashboard.new_product') }}" class="quick-action">
+                <i class="fas fa-plus"></i>
+                Nuevo Producto
+            </a>
+        </div>
     </div>
-    
-    <!-- Stats Grid -->
+
+    <!-- Alertas importantes -->
+    <div class="mb-6 space-y-3">
+        {% if total_products == 0 %}
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-triangle text-yellow-400 mr-3"></i>
+                <div>
+                    <p class="text-yellow-800 font-medium">¡Agrega tu primer producto!</p>
+                    <p class="text-yellow-700 text-sm">Tu tienda está vacía. Necesitas productos para empezar a vender.</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if pending_orders > 0 %}
+        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-bell text-blue-400 mr-3"></i>
+                    <div>
+                        <p class="text-blue-800 font-medium">Tienes {{ pending_orders }} pedidos pendientes</p>
+                        <p class="text-blue-700 text-sm">Revisa y procesa los pedidos nuevos.</p>
+                    </div>
+                </div>
+                <a href="{{ url_for('dashboard.orders') }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                    Ver pedidos →
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Métricas principales -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="metric-card p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-600">Productos Totales</p>
-                    <p class="text-3xl font-bold text-gray-800">{{ total_products }}</p>
+                    <p class="text-sm font-medium text-gray-600">Ventas Hoy</p>
+                    <p class="text-2xl font-bold text-gray-900" data-metric="today_sales">${{ today_sales or 0 }}</p>
+                    <p class="text-xs text-green-600 flex items-center mt-1">
+                        <i class="fas fa-arrow-up mr-1"></i>
+                        +{{ today_growth or 0 }}% vs ayer
+                    </p>
                 </div>
-                <div class="bg-purple-100 rounded-full p-3">
-                    <i class="fas fa-box text-purple-600 text-xl"></i>
+                <div class="p-3 bg-green-100 rounded-full">
+                    <i class="fas fa-dollar-sign text-green-600 text-xl"></i>
                 </div>
             </div>
         </div>
-        
-        <div class="bg-white rounded-lg shadow-md p-6">
+
+        <div class="metric-card p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-600">Productos Activos</p>
-                    <p class="text-3xl font-bold text-gray-800">{{ active_products }}</p>
+                    <p class="text-sm font-medium text-gray-600">Pedidos Hoy</p>
+                    <p class="text-2xl font-bold text-gray-900" data-metric="today_orders">{{ today_orders or 0 }}</p>
+                    <p class="text-xs text-blue-600 flex items-center mt-1">
+                        <i class="fas fa-shopping-cart mr-1"></i>
+                        {{ pending_orders or 0 }} pendientes
+                    </p>
                 </div>
-                <div class="bg-green-100 rounded-full p-3">
-                    <i class="fas fa-check-circle text-green-600 text-xl"></i>
-                </div>
-            </div>
-        </div>
-        
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Pedidos Totales</p>
-                    <p class="text-3xl font-bold text-gray-800">{{ total_orders }}</p>
-                </div>
-                <div class="bg-blue-100 rounded-full p-3">
+                <div class="p-3 bg-blue-100 rounded-full">
                     <i class="fas fa-shopping-cart text-blue-600 text-xl"></i>
                 </div>
             </div>
         </div>
-        
-        <div class="bg-white rounded-lg shadow-md p-6">
+
+        <div class="metric-card p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-600">Pedidos Pendientes</p>
-                    <p class="text-3xl font-bold text-gray-800">{{ pending_orders }}</p>
+                    <p class="text-sm font-medium text-gray-600">Productos</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ total_products or 0 }}</p>
+                    <p class="text-xs text-purple-600 flex items-center mt-1">
+                        <i class="fas fa-eye mr-1"></i>
+                        {{ products_views or 0 }} vistas
+                    </p>
                 </div>
-                <div class="bg-yellow-100 rounded-full p-3">
-                    <i class="fas fa-clock text-yellow-600 text-xl"></i>
+                <div class="p-3 bg-purple-100 rounded-full">
+                    <i class="fas fa-box text-purple-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="metric-card p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Clientes</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ customers_count or 0 }}</p>
+                    <p class="text-xs text-indigo-600 flex items-center mt-1">
+                        <i class="fas fa-users mr-1"></i>
+                        {{ new_customers or 0 }} nuevos
+                    </p>
+                </div>
+                <div class="p-3 bg-indigo-100 rounded-full">
+                    <i class="fas fa-users text-indigo-600 text-xl"></i>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Quick Actions -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold mb-4">Acciones Rápidas</h2>
+
+    <!-- Gráficos y análisis -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Gráfico de ventas -->
+        <div class="metric-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Ventas de los últimos 7 días</h3>
+                <div class="flex gap-2">
+                    <button onclick="changeChart('7d')" class="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-md">7D</button>
+                    <button onclick="changeChart('30d')" class="px-3 py-1 text-sm text-gray-600 rounded-md">30D</button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Productos más vendidos -->
+        <div class="metric-card p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Productos más vendidos</h3>
+            <div class="space-y-4">
+                {% for product in top_products[:5] %}
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        {% if product.image %}
+                        <img src="{{ url_for('static', filename='uploads/products/' + product.image) }}" alt="{{ product.name }}" class="w-10 h-10 rounded-lg object-cover mr-3">
+                        {% else %}
+                        <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-image text-gray-400"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <p class="font-medium text-gray-800">{{ product.name }}</p>
+                            <p class="text-sm text-gray-600">${{ product.price }}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-semibold text-gray-800">{{ product.sales_count or 0 }}</p>
+                        <p class="text-xs text-gray-600">vendidos</p>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                {% if not top_products %}
+                <div class="text-center py-8">
+                    <i class="fas fa-chart-bar text-gray-300 text-4xl mb-3"></i>
+                    <p class="text-gray-500">No hay datos de ventas aún</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Actividad reciente y acciones rápidas -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Actividad reciente -->
+        <div class="lg:col-span-2 metric-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Actividad Reciente</h3>
+                <a href="{{ url_for('dashboard.orders') }}" class="text-purple-600 hover:text-purple-800 text-sm font-medium">
+                    Ver todo →
+                </a>
+            </div>
+            
+            <div class="space-y-4">
+                {% for activity in recent_activities[:8] %}
+                <div class="activity-item pl-4 py-3 rounded-lg">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start">
+                            <div class="p-2 rounded-full mr-3 
+                                {% if activity.type == 'order' %}bg-green-100{% endif %}
+                                {% if activity.type == 'product' %}bg-blue-100{% endif %}
+                                {% if activity.type == 'customer' %}bg-purple-100{% endif %}">
+                                {% if activity.type == 'order' %}
+                                <i class="fas fa-shopping-cart text-green-600 text-sm"></i>
+                                {% elif activity.type == 'product' %}
+                                <i class="fas fa-box text-blue-600 text-sm"></i>
+                                {% elif activity.type == 'customer' %}
+                                <i class="fas fa-user text-purple-600 text-sm"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <p class="font-medium text-gray-800">{{ activity.title }}</p>
+                                <p class="text-sm text-gray-600">{{ activity.description }}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs text-gray-500">{{ activity.time_ago }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                {% if not recent_activities %}
+                <div class="text-center py-8">
+                    <i class="fas fa-clock text-gray-300 text-4xl mb-3"></i>
+                    <p class="text-gray-500">No hay actividad reciente</p>
+                    <p class="text-sm text-gray-400">La actividad aparecerá aquí cuando tengas pedidos</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Panel de acciones rápidas -->
+        <div class="metric-card p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Acciones Rápidas</h3>
+            
             <div class="space-y-3">
-                <a href="{{ url_for('dashboard.new_product') }}" class="flex items-center justify-between p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition">
-                    <div class="flex items-center">
-                        <i class="fas fa-plus-circle text-purple-600 mr-3"></i>
-                        <span class="font-medium">Agregar Producto</span>
-                    </div>
-                    <i class="fas fa-arrow-right text-purple-600"></i>
+                <a href="{{ url_for('dashboard.new_product') }}" 
+                   class="w-full flex items-center p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition">
+                    <i class="fas fa-plus-circle text-purple-600 mr-3"></i>
+                    <span class="font-medium text-purple-800">Agregar Producto</span>
                 </a>
                 
-                <a href="{{ url_for('dashboard.orders') }}" class="flex items-center justify-between p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
-                    <div class="flex items-center">
-                        <i class="fas fa-list text-blue-600 mr-3"></i>
-                        <span class="font-medium">Ver Todos los Pedidos</span>
-                    </div>
-                    <i class="fas fa-arrow-right text-blue-600"></i>
+                <a href="{{ url_for('dashboard.orders') }}" 
+                   class="w-full flex items-center p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition relative">
+                    <i class="fas fa-list text-blue-600 mr-3"></i>
+                    <span class="font-medium text-blue-800">Gestionar Pedidos</span>
+                    {% if pending_orders > 0 %}
+                    <span class="notification-badge">{{ pending_orders }}</span>
+                    {% endif %}
                 </a>
                 
-                <a href="{{ url_for('public.store', slug=current_user.slug) }}" target="_blank" class="flex items-center justify-between p-4 bg-green-50 rounded-lg hover:bg-green-100 transition">
-                    <div class="flex items-center">
-                        <i class="fas fa-external-link-alt text-green-600 mr-3"></i>
-                        <span class="font-medium">Ver Mi Tienda</span>
-                    </div>
-                    <i class="fas fa-arrow-right text-green-600"></i>
+                <a href="{{ url_for('dashboard.products') }}" 
+                   class="w-full flex items-center p-3 bg-green-50 hover:bg-green-100 rounded-lg transition">
+                    <i class="fas fa-box text-green-600 mr-3"></i>
+                    <span class="font-medium text-green-800">Ver Productos</span>
+                </a>
+                
+                <a href="{{ url_for('dashboard.settings') }}" 
+                   class="w-full flex items-center p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition">
+                    <i class="fas fa-cog text-gray-600 mr-3"></i>
+                    <span class="font-medium text-gray-800">Configuración</span>
                 </a>
             </div>
-        </div>
-        
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold mb-4">Tu URL de Tienda</h2>
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <p class="text-sm text-gray-600 mb-2">Comparte este enlace con tus clientes:</p>
-                <div class="flex items-center space-x-2">
-                    <input type="text" value="{{ url_for('public.store', slug=current_user.slug, _external=True) }}" 
-                           class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" readonly>
-                    <button onclick="copyToClipboard(this)" data-url="{{ url_for('public.store', slug=current_user.slug, _external=True) }}" 
-                            class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition">
-                        <i class="fas fa-copy"></i>
-                    </button>
+
+            <!-- Meta del mes -->
+            <div class="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg">
+                <h4 class="font-semibold text-gray-800 mb-2">Meta del Mes</h4>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-gray-600">Ventas</span>
+                    <span class="text-sm font-medium">${{ monthly_sales or 0 }} / ${{ monthly_goal or 10000 }}</span>
                 </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    {% set progress = ((monthly_sales / monthly_goal * 100) if monthly_goal else 0) %}
+                    <div class="progress-bar" style="width: {{ progress }}%"></div>
+                </div>
+                <p class="text-xs text-gray-600 mt-1">
+                    {{ progress|round }}% completado
+                </p>
             </div>
         </div>
     </div>
-    
+
+    <!-- Tu URL de Tienda -->
+    <div class="mt-8 bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold mb-4">Tu URL de Tienda</h2>
+        <div class="bg-gray-50 p-4 rounded-lg">
+            <p class="text-sm text-gray-600 mb-2">Comparte este enlace con tus clientes:</p>
+            <div class="flex items-center space-x-2">
+                <input type="text" value="{{ url_for('public.store', slug=current_user.slug, _external=True) }}" 
+                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm" readonly>
+                <button onclick="copyToClipboard(this)" data-url="{{ url_for('public.store', slug=current_user.slug, _external=True) }}" 
+                        class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition">
+                    <i class="fas fa-copy"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Recent Orders -->
     {% if recent_orders %}
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="mt-8 bg-white rounded-lg shadow-md p-6">
         <h2 class="text-xl font-semibold mb-4">Pedidos Recientes</h2>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
@@ -140,50 +404,181 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for order in recent_orders %}
-                    <tr>
+                    <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {{ order.order_number }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ order.customer_name }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${{ "%.2f"|format(order.total) }}
+                            #{{ order.id }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ order.get_status_badge_class() }}">
-                                {{ order.get_status_display() }}
-                            </span>
+                            <div class="text-sm font-medium text-gray-900">{{ order.customer_name or 'Cliente' }}</div>
+                            <div class="text-sm text-gray-500">{{ order.customer_phone }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${{ order.total }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if order.status == 'pending' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                    Pendiente
+                                </span>
+                            {% elif order.status == 'confirmed' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    Confirmado
+                                </span>
+                            {% elif order.status == 'delivered' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                    Entregado
+                                </span>
+                            {% else %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    {{ order.status|title }}
+                                </span>
+                            {% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ order.created_at.strftime('%d/%m/%Y %H:%M') }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <a href="{{ url_for('dashboard.order_detail', order_id=order.id) }}" class="text-purple-600 hover:text-purple-900">
-                                Ver detalles
-                            </a>
+                            <a href="{{ url_for('dashboard.order_detail', order_id=order.id) }}" 
+                               class="text-purple-600 hover:text-purple-900">Ver</a>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        <div class="mt-4 text-center">
+            <a href="{{ url_for('dashboard.orders') }}" 
+               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200">
+                Ver todos los pedidos
+                <i class="fas fa-arrow-right ml-2"></i>
+            </a>
+        </div>
     </div>
     {% endif %}
+
+    <!-- Tips y sugerencias -->
+    <div class="mt-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg p-6 text-white">
+        <div class="flex items-start justify-between">
+            <div>
+                <h3 class="text-lg font-semibold mb-2">💡 Tip del día</h3>
+                <p class="text-purple-100 mb-3">
+                    {% set tips = [
+                        "Agrega fotos de alta calidad a tus productos para aumentar las ventas.",
+                        "Responde rápido a los mensajes de WhatsApp para mejorar la confianza.",
+                        "Ofrece descuentos por compras múltiples para aumentar el ticket promedio.",
+                        "Actualiza regularmente tu inventario para evitar pedidos de productos agotados.",
+                        "Usa descripciones detalladas en tus productos para reducir dudas del cliente."
+                    ] %}
+                    {{ tips[range(0, tips|length)|random] }}
+                </p>
+                <a href="#" class="inline-flex items-center text-sm text-purple-200 hover:text-white">
+                    Más consejos para vender →
+                </a>
+            </div>
+            <i class="fas fa-lightbulb text-yellow-300 text-2xl"></i>
+        </div>
+    </div>
 </div>
 
 <script>
+// Configurar gráfico de ventas
+const ctx = document.getElementById('salesChart').getContext('2d');
+const salesChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: {{ sales_labels|safe }},
+        datasets: [{
+            label: 'Ventas ($)',
+            data: {{ sales_data|safe }},
+            borderColor: 'rgb(102, 126, 234)',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(0,0,0,0.05)'
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                }
+            }
+        },
+        elements: {
+            point: {
+                radius: 4,
+                hoverRadius: 6
+            }
+        }
+    }
+});
+
+function changeChart(period) {
+    // Cambiar período del gráfico
+    fetch(`/dashboard/chart-data?period=${period}`)
+        .then(response => response.json())
+        .then(data => {
+            salesChart.data.labels = data.labels;
+            salesChart.data.datasets[0].data = data.data;
+            salesChart.update();
+        });
+    
+    // Actualizar botones activos
+    document.querySelectorAll('button[onclick*="changeChart"]').forEach(btn => {
+        btn.classList.remove('bg-purple-100', 'text-purple-700');
+        btn.classList.add('text-gray-600');
+    });
+    event.target.classList.add('bg-purple-100', 'text-purple-700');
+    event.target.classList.remove('text-gray-600');
+}
+
+// Función para copiar URL
 function copyToClipboard(button) {
-    const url = button.getAttribute('data-url');
-    navigator.clipboard.writeText(url).then(function() {
-        const originalHTML = button.innerHTML;
+    const url = button.dataset.url;
+    navigator.clipboard.writeText(url).then(() => {
+        const originalIcon = button.innerHTML;
         button.innerHTML = '<i class="fas fa-check"></i>';
         button.classList.add('bg-green-600');
+        button.classList.remove('bg-purple-600');
+        
         setTimeout(() => {
-            button.innerHTML = originalHTML;
+            button.innerHTML = originalIcon;
             button.classList.remove('bg-green-600');
+            button.classList.add('bg-purple-600');
         }, 2000);
     });
 }
+
+// Actualizar métricas en tiempo real (cada 5 minutos)
+setInterval(() => {
+    fetch('/dashboard/live-metrics')
+        .then(response => response.json())
+        .then(data => {
+            // Actualizar métricas sin recargar la página
+            if (data.today_sales !== undefined) {
+                const element = document.querySelector('[data-metric="today_sales"]');
+                if (element) element.textContent = `${data.today_sales}`;
+            }
+            if (data.today_orders !== undefined) {
+                const element = document.querySelector('[data-metric="today_orders"]');
+                if (element) element.textContent = data.today_orders;
+            }
+        })
+        .catch(err => console.log('Error updating metrics:', err));
+}, 300000); // 5 minutos
 </script>
 {% endblock %}
