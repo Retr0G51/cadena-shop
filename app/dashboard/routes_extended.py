@@ -421,9 +421,9 @@ def customers():
     
     # OBTENER CLIENTES REALES desde pedidos
     customers_query = db.session.query(
-        Order.customer_name,
-        Order.customer_phone,
-        Order.delivery_address,  # ← Campo correcto
+    Order.customer_phone,
+        func.max(Order.customer_name).label('customer_name'),  # ← Usar MAX() para agregarlo
+        func.max(Order.delivery_address).label('delivery_address'),  # ← Usar MAX() para agregarlo
         func.count(Order.id).label('total_orders'),
         func.sum(Order.total).label('total_spent'),
         func.max(Order.created_at).label('last_order'),
@@ -482,9 +482,9 @@ def customers():
         
         # Crear objeto customer dict
         customer_dict = {
-            'customer_name': customer.customer_name,
+            'customer_name': customer.customer_name,  # Ya viene de MAX()
             'customer_phone': customer.customer_phone,
-            'customer_address': customer.delivery_address,  # ← Correcto
+            'customer_address': customer.delivery_address,  # Ya viene de MAX()
             'total_orders': customer.total_orders,
             'total_spent': float(customer.total_spent or 0),
             'last_order': customer.last_order,
