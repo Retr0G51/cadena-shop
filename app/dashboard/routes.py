@@ -928,14 +928,14 @@ def quick_actions():
 @bp.errorhandler(404)
 def dashboard_not_found(error):
     """404 específico del dashboard"""
-    return render_template('dashboard/404.html'), 404
+    return render_template('errors/404.html'), 404
 
 @bp.errorhandler(500)
 def dashboard_server_error(error):
     """500 específico del dashboard"""
     db.session.rollback()
     current_app.logger.error(f"Dashboard error: {error}")
-    return render_template('dashboard/500.html'), 500
+    return render_template('errors/500.html'), 500
 
 # ==================== HELPER PARA DEBUGGING ====================
 
