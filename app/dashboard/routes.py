@@ -956,57 +956,6 @@ def customer_orders(phone):
 
 # ==================== ANALYTICS Y REPORTES ====================
 
-@bp.route('/analytics')
-@login_required
-@active_business_required
-def analytics():
-    """Analytics avanzados (si el template existe)"""
-    
-    # Verificar si el template existe
-    template_path = 'dashboard/analytics.html'
-    
-    try:
-        # Datos básicos para analytics
-        analytics_data = {
-            'total_revenue': 0,
-            'total_orders': 0,
-            'avg_order_value': 0,
-            'unique_customers': 0,
-            'conversion_rate': 3.2,
-            'revenue_growth': 12.5,
-            'orders_growth': 8.3,
-            'aov_growth': 4.2,
-            'conversion_growth': 2.1
-        }
-        
-        # Si está disponible Analytics, usar datos reales
-        if ANALYTICS_AVAILABLE:
-            analytics = Analytics(current_user.id)
-            analytics_data.update(analytics.get_dashboard_metrics())
-        
-        # Datos para gráficos
-        sales_chart = get_sales_chart_data(current_user.id, days=30)
-        orders_chart = get_orders_chart_data(current_user.id, days=30)
-        
-        # Top productos para analytics
-        top_products = get_top_selling_products(current_user.id, limit=10)
-        
-        return render_template(template_path,
-            metrics=analytics_data,
-            sales_labels=json.dumps(sales_chart['labels']),
-            sales_data=json.dumps(sales_chart['data']),
-            orders_labels=json.dumps(orders_chart['labels']),
-            orders_data=json.dumps(orders_chart['data']),
-            top_products=top_products,
-            date_from=datetime.now() - timedelta(days=30),
-            date_to=datetime.now()
-        )
-        
-    except Exception as e:
-        current_app.logger.error(f"Analytics error: {e}")
-        flash('Analytics no está disponible en este momento', 'info')
-        return redirect(url_for('dashboard.index'))
-
 @bp.route('/reports')
 @login_required
 @active_business_required
