@@ -830,41 +830,6 @@ def settings():
     
     return render_template('dashboard/settings.html', form=form)
 
-# ==================== RUTAS DE CLIENTES ====================
-
-@bp.route('/customers/<phone>/orders')
-@login_required
-@active_business_required
-def customer_orders(phone):
-    """API: Obtiene pedidos de un cliente específico"""
-    
-    # Obtener pedidos del cliente
-    orders = Order.query.filter_by(
-        user_id=current_user.id,
-        customer_phone=phone
-    ).order_by(Order.created_at.desc()).all()
-    
-    # Obtener nombre del cliente
-    customer_name = orders[0].customer_name if orders else "Cliente"
-    
-    # Convertir a JSON
-    orders_data = []
-    for order in orders:
-        orders_data.append({
-            'id': order.id,
-            'created_at': order.created_at.isoformat(),
-            'status': order.status,
-            'total': float(order.total),
-            'items_count': len(order.items) if hasattr(order, 'items') else 0
-        })
-    
-    return jsonify({
-        'success': True,
-        'customer_name': customer_name,
-        'phone': phone,
-        'orders': orders_data
-    })
-
 # ==================== ANALYTICS Y REPORTES ====================
 
 @bp.route('/reports')
