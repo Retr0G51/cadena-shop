@@ -442,9 +442,16 @@ def customers():
         Customer.created_at >= datetime.utcnow() - timedelta(days=30)
     ).count()
 
-    vip_customers_count = len([c for c in filtered_customers if c['type'] == 'vip'])
-    at_risk_customers_count = 0  # Placeholder por ahora
-    marketing_customers_count = 0  # Placeholder por ahora
+    # Calcular estadísticas desde customers_data
+    vip_customers_count = sum(1 for customer in customers_data if customer.total_spent >= 5000)
+    new_customers_count = sum(1 for customer in customers_data if customer.total_orders == 1)
+    at_risk_customers_count = 0  # Placeholder
+    marketing_customers_count = 0  # Placeholder
+
+    # Calcular tasa de retorno
+    total_customers = len(customers_data)
+    returning_customers = sum(1 for customer in customers_data if customer.total_orders > 1)
+    returning_rate = (returning_customers / total_customers * 100) if total_customers > 0 else 0
     
     return render_template('dashboard/customers.html',
         customers=customers,
@@ -453,8 +460,10 @@ def customers():
         total_customers=total_customers,
         new_customers=new_customers,
         vip_customers_count=vip_customers_count,
+        new_customers_count=new_customers_count,
         at_risk_customers_count=at_risk_customers_count,
-        marketing_customers_count=marketing_customers_count             
+        marketing_customers_count=marketing_customers_count,
+        returning_rate=round(returning_rate, 1)             
     )
 
 @bp.route('/customers/<int:customer_id>')
