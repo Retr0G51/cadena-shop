@@ -422,7 +422,7 @@ def customers():
     customers_query = db.session.query(
         Order.customer_name,
         Order.customer_phone,
-        Order.customer_address,
+        Order.delivery_address,  # ← Campo correcto
         func.count(Order.id).label('total_orders'),
         func.sum(Order.total).label('total_spent'),
         func.max(Order.created_at).label('last_order'),
@@ -483,7 +483,7 @@ def customers():
         customer_dict = {
             'customer_name': customer.customer_name,
             'customer_phone': customer.customer_phone,
-            'customer_address': customer.customer_address,
+            'customer_address': customer.delivery_address,  # ← Correcto
             'total_orders': customer.total_orders,
             'total_spent': float(customer.total_spent or 0),
             'last_order': customer.last_order,
