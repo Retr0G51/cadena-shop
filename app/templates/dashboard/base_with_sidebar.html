@@ -1,0 +1,318 @@
+<!-- PASO 1: Crea app/templates/dashboard/base_with_sidebar.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard{% endblock %} - {{ current_user.business_name or 'PedidosSaaS' }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% block extra_css %}{% endblock %}
+    
+    <style>
+        /* Sidebar Styles */
+        .sidebar-hidden { transform: translateX(-100%); }
+        .sidebar-visible { transform: translateX(0); }
+        .main-content-expanded { margin-left: 0; }
+        .main-content-normal { margin-left: 16rem; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .sidebar-item:hover { background: rgba(255, 255, 255, 0.1); }
+        .sidebar-item.active { background: rgba(255, 255, 255, 0.15); border-right: 3px solid #fff; }
+        
+        /* Animaciones */
+        .sidebar { transition: transform 0.3s ease-in-out; }
+        .main-content { transition: margin-left 0.3s ease-in-out; }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-content-normal { margin-left: 0; }
+            .sidebar { z-index: 50; }
+        }
+        
+        /* Tus estilos actuales del dashboard */
+        .metric-card { 
+            background: white; 
+            border-radius: 0.75rem; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            transition: all 0.3s ease;
+        }
+        .metric-card:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+        }
+        .alert-card {
+            background: white;
+            border-radius: 0.75rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+        }
+        .alert-warning { border-left-color: #f59e0b; }
+        .alert-info { border-left-color: #3b82f6; }
+        .alert-success { border-left-color: #10b981; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar sidebar-visible fixed inset-y-0 left-0 w-64 gradient-bg text-white z-40 shadow-xl">
+        <!-- Header del Sidebar -->
+        <div class="flex items-center justify-between p-4 border-b border-white/20">
+            <div class="flex items-center space-x-2">
+                <div class="bg-white/20 rounded-lg p-2">
+                    <i class="fas fa-store text-xl"></i>
+                </div>
+                <div>
+                    <h2 class="font-bold text-lg">{{ current_user.business_name or 'PedidosSaaS' }}</h2>
+                    <p class="text-xs text-white/80">Dashboard</p>
+                </div>
+            </div>
+            <button id="sidebarToggle" class="lg:hidden p-2 rounded-lg hover:bg-white/10">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Navegación Principal -->
+        <nav class="mt-6 px-4">
+            <div class="space-y-2">
+                <!-- Dashboard Principal -->
+                <a href="{{ url_for('dashboard.index') }}" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-all {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+                    <i class="fas fa-tachometer-alt w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+
+                <!-- Productos -->
+                <a href="{{ url_for('dashboard.products') }}" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-all {% if 'products' in request.endpoint %}active{% endif %}">
+                    <i class="fas fa-box w-5"></i>
+                    <span>Productos</span>
+                    <span class="ml-auto bg-white/20 text-xs px-2 py-1 rounded-full">{{ total_products or 0 }}</span>
+                </a>
+
+                <!-- Pedidos -->
+                <a href="{{ url_for('dashboard.orders') }}" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-all {% if 'orders' in request.endpoint %}active{% endif %}">
+                    <i class="fas fa-shopping-cart w-5"></i>
+                    <span>Pedidos</span>
+                    {% if pending_orders > 0 %}
+                    <span class="ml-auto bg-red-500 text-xs px-2 py-1 rounded-full">{{ pending_orders }}</span>
+                    {% endif %}
+                </a>
+
+                <!-- Clientes -->
+                <a href="{{ url_for('dashboard.customers') }}" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-all {% if 'customers' in request.endpoint %}active{% endif %}">
+                    <i class="fas fa-users w-5"></i>
+                    <span>Clientes</span>
+                    <span class="ml-auto bg-white/20 text-xs px-2 py-1 rounded-full">{{ customers_count or 0 }}</span>
+                </a>
+
+                <!-- Analytics -->
+                <a href="{{ url_for('dashboard.analytics') }}" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-all {% if 'analytics' in request.endpoint %}active{% endif %}">
+                    <i class="fas fa-chart-bar w-5"></i>
+                    <span>Analytics</span>
+                    <span class="ml-auto">
+                        <i class="fas fa-chart-line text-green-400 text-xs"></i>
+                    </span>
+                </a>
+
+                <!-- Facturas -->
+                <a href="{{ url_for('dashboard.invoices') }}" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-all {% if 'invoices' in request.endpoint %}active{% endif %}">
+                    <i class="fas fa-file-invoice w-5"></i>
+                    <span>Facturas</span>
+                </a>
+            </div>
+
+            <!-- Sección: Herramientas -->
+            <div class="mt-8">
+                <h3 class="text-xs font-semibold text-white/60 uppercase tracking-wider px-3 mb-3">Herramientas</h3>
+                <div class="space-y-2">
+                    <!-- Configuración -->
+                    <a href="{{ url_for('dashboard.settings') }}" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-all {% if request.endpoint == 'dashboard.settings' %}active{% endif %}">
+                        <i class="fas fa-cog w-5"></i>
+                        <span>Configuración</span>
+                    </a>
+
+                    <!-- Reportes -->
+                    <a href="#" onclick="alert('Próximamente')" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-all">
+                        <i class="fas fa-chart-pie w-5"></i>
+                        <span>Reportes</span>
+                        <span class="ml-auto text-xs bg-yellow-500 px-1 rounded">Próx</span>
+                    </a>
+
+                    <!-- Soporte -->
+                    <a href="#" onclick="alert('Contacta por WhatsApp: +1234567890')" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-all">
+                        <i class="fas fa-life-ring w-5"></i>
+                        <span>Soporte</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Sección: Mi Tienda -->
+            <div class="mt-8">
+                <h3 class="text-xs font-semibold text-white/60 uppercase tracking-wider px-3 mb-3">Mi Tienda</h3>
+                <div class="space-y-2">
+                    <!-- Ver Tienda -->
+                    <a href="{{ url_for('public.store', slug=current_user.slug) }}" target="_blank" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-all">
+                        <i class="fas fa-external-link-alt w-5"></i>
+                        <span>Ver Tienda</span>
+                    </a>
+
+                    <!-- Personalizar -->
+                    <a href="#" onclick="alert('Personalización próximamente')" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg transition-all">
+                        <i class="fas fa-palette w-5"></i>
+                        <span>Personalizar</span>
+                        <span class="ml-auto text-xs bg-purple-500 px-1 rounded">Próx</span>
+                    </a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Usuario y Logout en el footer del sidebar -->
+        <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-white/20">
+            <div class="flex items-center space-x-3 mb-3">
+                <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                    <i class="fas fa-user text-sm"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium truncate">{{ current_user.email }}</p>
+                    <p class="text-xs text-white/60">Usuario</p>
+                </div>
+            </div>
+            <a href="{{ url_for('auth.logout') }}" class="flex items-center space-x-2 p-2 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-all">
+                <i class="fas fa-sign-out-alt"></i>
+                <span class="text-sm">Cerrar Sesión</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Overlay para móvil -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden hidden"></div>
+
+    <!-- Main Content -->
+    <div id="mainContent" class="main-content main-content-normal min-h-screen">
+        <!-- Top Navigation Bar -->
+        <nav class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <!-- Mobile Menu Button -->
+                    <button id="mobileMenuToggle" class="lg:hidden p-2 rounded-lg hover:bg-gray-100">
+                        <i class="fas fa-bars text-gray-600"></i>
+                    </button>
+                    
+                    <!-- Desktop Sidebar Toggle -->
+                    <button id="desktopSidebarToggle" class="hidden lg:block p-2 rounded-lg hover:bg-gray-100">
+                        <i class="fas fa-bars text-gray-600"></i>
+                    </button>
+
+                    <!-- Título de la página -->
+                    <h1 class="text-xl font-semibold text-gray-800">{% block page_title %}Dashboard{% endblock %}</h1>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <!-- Notificaciones -->
+                    <button class="relative p-2 rounded-lg hover:bg-gray-100">
+                        <i class="fas fa-bell text-gray-600"></i>
+                        {% if pending_orders > 0 %}
+                        <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{{ pending_orders }}</span>
+                        {% endif %}
+                    </button>
+
+                    <!-- Usuario -->
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-purple-600 text-sm"></i>
+                        </div>
+                        <span class="hidden md:inline text-sm font-medium text-gray-700">{{ current_user.email }}</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Contenido Principal -->
+        <main class="p-6">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- JavaScript para el Sidebar -->
+    <script>
+        // Variables del sidebar
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
+        const overlay = document.getElementById('sidebarOverlay');
+        const mobileToggle = document.getElementById('mobileMenuToggle');
+        const desktopToggle = document.getElementById('desktopSidebarToggle');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+
+        let sidebarVisible = true;
+
+        // Función para toggle del sidebar
+        function toggleSidebar() {
+            sidebarVisible = !sidebarVisible;
+            
+            if (window.innerWidth >= 1024) {
+                // Desktop: slide sidebar y ajustar contenido
+                if (sidebarVisible) {
+                    sidebar.classList.remove('sidebar-hidden');
+                    sidebar.classList.add('sidebar-visible');
+                    mainContent.classList.remove('main-content-expanded');
+                    mainContent.classList.add('main-content-normal');
+                } else {
+                    sidebar.classList.remove('sidebar-visible');
+                    sidebar.classList.add('sidebar-hidden');
+                    mainContent.classList.remove('main-content-normal');
+                    mainContent.classList.add('main-content-expanded');
+                }
+            } else {
+                // Mobile: overlay
+                if (sidebarVisible) {
+                    sidebar.classList.remove('sidebar-hidden');
+                    sidebar.classList.add('sidebar-visible');
+                    overlay.classList.remove('hidden');
+                } else {
+                    sidebar.classList.remove('sidebar-visible');
+                    sidebar.classList.add('sidebar-hidden');
+                    overlay.classList.add('hidden');
+                }
+            }
+        }
+
+        // Event listeners
+        mobileToggle?.addEventListener('click', toggleSidebar);
+        desktopToggle?.addEventListener('click', toggleSidebar);
+        sidebarToggle?.addEventListener('click', toggleSidebar);
+        overlay?.addEventListener('click', toggleSidebar);
+
+        // Auto-cerrar sidebar en móvil cuando se navega
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarLinks = document.querySelectorAll('.sidebar-item');
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth < 1024 && sidebarVisible) {
+                        setTimeout(() => {
+                            sidebarVisible = false;
+                            toggleSidebar();
+                        }, 100);
+                    }
+                });
+            });
+        });
+
+        // Responsive: ajustar sidebar en cambio de tamaño
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024) {
+                overlay.classList.add('hidden');
+                if (sidebarVisible) {
+                    mainContent.classList.add('main-content-normal');
+                } else {
+                    mainContent.classList.add('main-content-expanded');
+                }
+            } else {
+                mainContent.classList.remove('main-content-normal', 'main-content-expanded');
+                if (!sidebarVisible) {
+                    sidebar.classList.add('sidebar-hidden');
+                }
+            }
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
